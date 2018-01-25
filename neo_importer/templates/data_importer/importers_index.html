@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% load neo_importer_extras %}
+{% block contents %}
+    <div class="tile-box-padding">
+        <ul>
+            {% for importer_key, importer in importer_site.get_importers.items %}
+                {% generate_importer_link user importer_key %}
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}

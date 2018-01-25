@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% load tags_html %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb zdbreadcrumb">
+        <li><a href="/">Home</a></li>
+        <li class=""><a href="{{ importer.get_absolute_url }}">{{ title }}</a></li>
+        <li class="active">{{ title }} Upload File</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <h1>{{ title }}</h1>
+{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{{ MEDIA_URL }}css/sweet-alert.css">
+    <style type="text/css" id="stylesheet">
+        .obs_items {
+            padding-left: 15px;
+            color: #555;
+            color: #fff;
+        }
+    </style>
+{% endblock css %}
+
+{% block content %}
+    <div class="col-xs-12 step-container">
+        <div class="step forward" data-step="0">
+            <p class="step-1">Upload file</p>
+            <p class="step-2">Document <br> importation review</p>
+            <p class="step-3">Transaction <br> completed</p>
+        </div>
+    </div>
+    <div class="col-md-7">
+        {#        <div class="alert alert-warning alert-dismissible" role="alert">#}
+        {#            <button class="close" type="button" data-dismiss="alert" aria-hidden="true"><i class="fa fa-times"></i>#}
+        {#            </button>#}
+        {#            <p>The upload process may take a few minutes. If it takes 4 minutes or longer, please restart it.</p>#}
+        {#        </div>#}
+        <div class="tile-box">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% include 'data_importer/_neo_importer_form.html' %}
+                {% block extra_form %}
+                    {% if formset %}
+                        {% include 'data_importer/_neo_file_importer_formset.html' %}
+                    {% endif %}
+                {% endblock %}
+
+                <div class="button-group text-right">
+
+                    <a href="{{ template_file_url }}" class="btn btn-info"><i class="fa fa-download"></i>&nbsp;Download
+                        template</a>
+
+                    <button type="submit" class="btn btn-success"><i class="fa fa-send"></i>&nbsp;Send file</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="">
+            {#            <div class="bs-callout" id="callout-overview-not-both">#}
+            {#                Please, follow <a href="{{ template_file_url }}">this template file</a> to avoid validation errors.#}
+            {#            </div>#}
+            {#            <div class="bs-callout" id="callout-overview-not-both">#}
+            {#                Fields marked with <span class="mandatory">*</span> are <strong>required</strong>#}
+            {#            </div>#}
+            {% if concat_messages %}
+                <div class="zd-importer-helper info">
+                    <div class="header">
+                        <h3>Before import a template, check if all data is correct as below</h3>
+                    </div>
+                    <div class="body">
+                        <ul>
+                            {% for message in concat_messages %}
+                                {% if message %}
+                                    <li class="">
+                                        {{ message }}
+                                    </li>
+                                {% else %}
+                                    <br>
+                                {% endif %}
+
+                            {% endfor %}
+                        </ul>
+                        {% if mandatory_columns %}
+                            <br/>
+                            <strong>Required columns:</strong><br/>
+                            <ul>
+                            {% for mcolumn in mandatory_columns %}
+                                <li class="">
+                                    {{ mcolumn }}
+                                </li>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            {% if html_messages %}
+                {% autoescape off %}
+                    {{ html_messages }}
+                {% endautoescape %}
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="modal fade" id="download_modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">Download templates</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <strong>Missing Columns: </strong> <span id="columns-with-errors"></span>
+                    </div>
+                    <div class="bs-callout" id="callout-overview-not-both">
+                        Please, follow <a href="{{ template_file_url }}">this template file</a> to avoid validation
+                        errors.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extras_js %}
+    <script type="text/javascript" src="{{ MEDIA_URL }}js/sweet-alert.min.js"></script>
+    <script type="text/javascript" src="{{ MEDIA_URL }}js/neo_importer.js"></script>
+
+    <script>
+        $(function () {
+            $(".need_help_template").click(function () {
+                $("#download_modal").modal('show');
+                $('#columns-with-errors').html($(this).data('columns-errors'));
+            })
+        })
+    </script>
+{% endblock %}

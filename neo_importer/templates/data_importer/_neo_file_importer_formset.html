@@ -1,0 +1,22 @@
+<div id="formset_forms">
+    {{ formset.management_form }}
+    {% for form_f in formset.forms %}
+        {% with forloop.counter0 as prefix %}
+            {% include 'data_importer/_neo_file_importer_formset_form.html' %}
+        {% endwith %}
+    {% endfor %}
+</div>
+<div>
+    <button type="button" class="btn pull-right" id="add_formset_form"><i
+            class="glyphicon glyphicon-plus"></i> Add form
+    </button>
+    <div class="clearfix"></div>
+</div>
+
+<script type="text/html" id="empty_form">
+    {% with formset.empty_form as form_f %}
+        {% with '__prefix__' as prefix %}
+            {% include 'data_importer/_neo_file_importer_formset_form.html' %}
+        {% endwith %}
+    {% endwith %}
+</script>

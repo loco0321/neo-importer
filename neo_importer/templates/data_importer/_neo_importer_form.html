@@ -1,0 +1,22 @@
+{% load tags_html %}
+<div class="">
+    {% if form.non_field_errors %}
+        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+    {% endfor %}
+    {% for field in form.visible_fields %}
+        {% if field|is_checkbox %}
+            {% include 'forms/bs3_checkbox_inline_field.html' %}
+        {% else %}
+            <div class="form-group">
+                {% if field.errors %}
+                    <div class="alert alert-danger">{{ field.errors }}</div>{% endif %}
+                <label class="control-label">{{ field.label }}</label>
+                {{ field|addclass:'form-control' }}
+                {% if field.help_text %}<span class="help-block">{{ field.help_text }}</span>{% endif %}
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>

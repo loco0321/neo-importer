@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% load crispy_forms_tags flowbot_tag %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li class="active">{{ title }}</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <div class="row">
+        <div class="col-md-12">
+            <h1>{{ title }}</h1>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block css %}
+    <style type="text/css" id="stylesheet">
+        .obs_items {
+            padding-left: 15px;
+            color: #555;
+            color: #fff;
+        }
+    </style>
+{% endblock css %}
+
+{% block contents %}
+
+    <div class="col-md-7">
+        <div class="tile-box-padding">
+            <form method="POST" enctype="multipart/form-data">
+                {% crispy form %}
+                <div class="form-group">
+                    {% if request.path|findpath %}
+                        <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-import"></span>
+                            Confirm
+                        </button>
+                    {% else %}
+                        <button type="submit" class="btn btn-primary"><span class="glyphicon glyphicon-import"></span>
+                             Import file
+                        </button>
+                    {% endif %}
+                </div>
+            </form>
+
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="">
+            {% if concat_messages %}
+                <div class="bs-callout" id="callout-overview-not-both">
+                    <h4>Tip:</h4>
+                    <strong>Before import a template, check if all data is correct as below</strong>
+                    <br/>
+                    <ul>
+                        {% for message in concat_messages %}
+                            {% if message %}
+                                <li class="">
+                                    {{ message }}
+                                </li>
+                            {% else %}
+                                <br>
+                            {% endif %}
+
+                        {% endfor %}
+                    </ul>
+                    {% if mandatory_columns %}
+                        <br/>
+                        <strong>Required columns:</strong><br/>
+                        <ul>
+                        {% for mcolumn in mandatory_columns %}
+                            <li class="">
+                                {{ mcolumn }}
+                            </li>
+                        {% endfor %}
+                    {% endif %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% if html_messages %}
+                {% autoescape off %}
+                    {{ html_messages }}
+                {% endautoescape %}
+            {% endif %}
+            {% if template_file %}
+                <div class="bs-callout" id="callout-overview-not-both">
+                    Please, follow <a href="{{ template_file }}">this template file</a> to avoid validation errors.
+                </div>
+            {% else %}
+                <div class="bs-callout" id="callout-overview-not-both">
+                    Please, follow <a href="./?download_template=1">this template file</a> to avoid validation errors.
+                </div>
+            {% endif %}
+            <div class="bs-callout" id="callout-overview-not-both">
+                Fields marked with <span class="mandatory">*</span> are <strong>required</strong>
+            </div>
+        </div>
+    </div>
+
+
+
+{% endblock %}

@@ -1,0 +1,379 @@
+{% extends "dogi/base.html" %}
+{% load zina_extras %}
+{% load flowbot_tag %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb zdbreadcrumb">
+        <li><a href="/">Home</a></li>
+        <li class=""><a href="{{ importer.get_absolute_url }}">{{ importer_title }}</a></li>
+        <li class=""><a href="{{ importer.get_upload_file_url }}">{{ importer_title }} Upload File</a></li>
+        <li class="active">{{ importer_title }} Tracking</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <h1 class="tile-title display-inlineblock">Sync Summary</h1>
+    <h2 class="subtitle">{{ importer_type|capfirst }} Tracking: {{ file_upload_history.original_filename }}</h2>
+{% endblock %}
+
+
+{% block contents %}
+    <div class="">
+    <div class="tile-box-padding">
+    <div class="col-xs-12 step-container">
+        <div class="step forward" data-step="2">
+            <p class="step-1">Upload file</p>
+            <p class="step-2">Document <br> importation review</p>
+            <p class="step-3">Transaction <br> completed</p>
+        </div>
+    </div>
+    {#    <div id="loading" class="text-center" style="margin: 100px 0">#}
+    {#        <span class="fa fa-spin fa-spinner fa-5x"> </span><br>#}
+    {#        <span>Loading data, please wait</span>#}
+    {#    </div>#}
+
+    <!-- Finish view content -->
+    <div class="col-xs-12">
+        <div class="alert alert-warning alert-dismissible" role="alert">
+            <button class="close" type="button" data-dismiss="alert" aria-hidden="true"><i class="fa fa-times"></i>
+            </button>
+            <p>Your files were successfully uploaded and are syncing.
+{#                <mark>Please, upload the ZI.</mark>#}
+            </p>
+        </div>
+    </div>
+    <div class="col-xs-12">
+        <div class="row">
+            <div class="col-xs-12  col-sm-6 col-md-3">
+                <div class="zd-small-box danger">
+                    <div class="inner">
+                        <h3>{{ results.data_jobs.total_rejected }}</h3>
+                        <p>{{ entity_name|capfirst }} rejected</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fa fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="footer hide">
+                        This is the footer
+                    </div>
+                </div>
+            </div>
+            <div class="col-xs-12  col-sm-6 col-md-3">
+                <div class="zd-small-box warning">
+                    <div class="inner">
+                        <h3>{{ results.data_jobs.total_waiting }}</h3>
+                        <p>{{ entity_name|capfirst }} in process</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fa fa-send"></i>
+                    </div>
+                    <div class="footer hide">
+                        This is the footer
+                    </div>
+                </div>
+            </div>
+            <div class="col-xs-12  col-sm-6 col-md-3">
+                <div class="zd-small-box success">
+                    <div class="inner">
+                        <h3>{{ results.data_jobs.total_created }}</h3>
+                        <p>{{ entity_name|capfirst }} created in SAP</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fa fa-check"></i>
+                    </div>
+                    <div class="footer hide">
+                        This is the footer
+                    </div>
+                </div>
+            </div>
+            <div class="col-xs-12  col-sm-6 col-md-3">
+                <div class="zd-small-box default">
+                    <div class="inner">
+                        <h3>{{ results.data_jobs.total }}</h3>
+                        <p>Total {{ entity_name|capfirst }}</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fa fa-hashtag"></i>
+                    </div>
+                    <div class="footer hide">
+                        This is the footer
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xs-12">
+        <span id="last-update-icon" class="fa fa-spin fa-refresh"></span>
+        <span class="latest-update"><strong>Latest update: </strong></span>
+        <span id="last-update"></span>
+        <span data-container="body" class="popover-info" data-toggle="popover" data-placement="top"
+              data-content="This page is updated every 30 seconds automatically" title="Information"><i
+                class="fa fa-info-circle"></i></span>
+    </div>
+    <div class="col-xs-12">
+        <div class="transaction progress">
+            <div id="progress" class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="60"
+                 aria-valuemin="0" aria-valuemax="100" style="width: {{ results.data_jobs.progress }}%;">
+                <span>{{ results.data_jobs.progress }}% Completed</span>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+    <div class="col-xs-12">
+        <div class="row">
+            <div class="col-xs-3 col-lg-2 pull-right text-right">
+                <a class="font-bold underbutton color-info all-panels-trigger" href="javascript:void(0)">Expand all</a>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-xs-12">
+    <div class="summary-panel">
+    <div class="panel-group summary">
+    {% for item in results.data_jobs.jobs %}
+        {% if item.state == 'rejected' %}
+            <div class="panel panel-default" id="panel-{{ item.id }}">
+            <a href="#sum-{{ forloop.counter0 }}-content" data-toggle="collapse" class="panel-trigger">
+                <div class="zd-callout panel-heading summary zd-callout-danger">
+                    <h6>
+                        <i class="fa fa-exclamation-triangle"></i>&nbsp;{% if results.columns_to_group.keys %}
+                        {{ results.columns_to_group.keys|join:', ' }}{% else %}Job
+                        {{ forloop.counter }}{% endif %}: {{ results|get_columns_to_group_values:item.input|join:', ' }}
+                        Rejected
+                    </h6>
+                    <i class="indicator fa fa-chevron-down"></i>
+                </div>
+            </a>
+            <div class="panel-collapse collapse not-menu" id="sum-{{ forloop.counter0 }}-content">
+            <div class="panel-body warning">
+        {% else %}
+            {% if item.state == 'created' %}
+                <div class="panel panel-default" id="panel-{{ item.id }}">
+                <a href="#sum-{{ forloop.counter0 }}-content" data-toggle="collapse" class="panel-trigger">
+                    <div class="zd-callout panel-heading summary zd-callout-success">
+                        <h6>
+                            <i class="fa fa-check"></i>&nbsp;{% if results.columns_to_group.keys %}
+                            {{ results.columns_to_group.keys|join:', ' }}{% else %}Line {{ item.first_line }}{% endif %}
+                            : {{ results|get_columns_to_group_values:item.input|join:', ' }}
+                            Created in SAP
+                        </h6>
+                        <i class="indicator fa fa-chevron-down"></i>
+                    </div>
+                </a>
+                <div class="panel-collapse collapse not-menu" id="sum-{{ forloop.counter0 }}-content">
+                <div class="panel-body warning">
+            {% else %}
+                <div class="panel panel-default" id="panel-{{ item.id }}">
+                <a href="#sum-{{ forloop.counter0 }}-content" data-toggle="collapse" class="panel-trigger">
+                    <div class="zd-callout panel-heading summary zd-callout-warning">
+                        <h6>
+                            <i class="fa fa-send"></i>&nbsp;{% if results.columns_to_group.keys %}
+                            {{ results.columns_to_group.keys|join:', ' }}{% else %}Job
+                            {{ forloop.counter }}{% endif %}
+                            : {{ results|get_columns_to_group_values:item.input|join:', ' }}
+                            Waiting to be executed
+                        </h6>
+                        <i class="indicator fa fa-chevron-down"></i>
+                    </div>
+                </a>
+                <div class="panel-collapse collapse not-menu" id="sum-{{ forloop.counter0 }}-content">
+                <div class="panel-body warning">
+            {% endif %}
+        {% endif %}
+    <div class="col-xs-12">
+        <div class="message-area"></div>
+        <div class="row">
+            {% for label, field_mapping in results.single_elements.items %}
+                <div class="col-md-6">
+                    <strong>{{ label }}: </strong> {{ item.input|get_item:field_mapping }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-xs-12">
+        <table class="table table-bordered table-responsive table-condensed single-elements-results">
+            <thead>
+            <tr>
+                {% for key in results.grouped_fields_labels %}
+                    <th>{{ key }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for elements in results|prepare_list_elements:item.input %}
+                <tr>
+                    {% for key in elements %}
+                        <td>
+                            {{ key.value }}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% if results.extra_params or  results.extra_params_grouped %}
+            <hr>
+            <h4>Extra Params</h4>
+
+            <div class="row">
+                {% for label, field_mapping in results.extra_params.items %}
+                    <div class="col-md-6">
+                        <strong>{{ label }}: </strong> {{ item.extra_params|get_item:field_mapping }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <table class="table table-bordered table-responsive table-condensed single-elements-results">
+                <thead>
+                <tr>
+                    {% for key in results.extra_params_grouped.keys %}
+                        <th>{{ key }}</th>
+                    {% endfor %}
+                </tr>
+                </thead>
+                <tbody>
+
+                {% for elements in results|prepare_extra_list_elements:item.extra_params %}
+                    <tr>
+                        {% for key in elements %}
+                            <td>
+                                {{ key.value }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    </div>
+    </div>
+    </div>
+    {% endfor %}
+</div>
+</div>
+</div>
+<hr>
+{% block importer_buttons %}
+    <div class="text-right">
+        <a href="{{ upload_file_url }}" class="btn btn-info"> Import a new {{ entity_name }}s
+            file</a>
+        {#            {% if results.data_jobs.infos|length > 0 %}#}
+        {#                <a href=""#}
+        {#                   class="btn btn-primary">See all my imports</a>#}
+        {#            {% endif %}#}
+    </div>
+{% endblock %}
+</div>
+</div>
+{% endblock %}
+
+{% block extras_js %}
+    <script src="{{ MEDIA_URL }}hansondtable_importer/handsontable/moment/moment.js"></script>
+    <script src="{{ MEDIA_URL }}js/underscore.js"></script>
+    <script>
+
+        window.get_jobs_url = '{{ importer.get_jobs_file_url }}';
+        $(function () {
+            $.ajaxSetup({cache: false});
+            $('.popover-danger').popover({
+                trigger: 'hover',
+                template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-title popover-danger"></h3><div class="popover-content"></div></div>'
+            });
+            $('.popover-info').popover({
+                trigger: 'hover',
+            });
+            $('#collapse-all').on('click', function () {
+                $('#accordion .panel-collapse').collapse('hide');
+            });
+            $('#expand-all').on('click', function () {
+                $('#accordion .panel-collapse').collapse('show');
+            });
+        });
+
+        function doPoll() {
+            $.get(window.get_jobs_url, function (data) {
+
+                $('#last-update').text(moment(new Date()).format("DD/MM/YYYY HH:mm:ss"));
+                $('#last-update-icon').show().fadeOut(3000);
+
+                $('#total').text(data.total);
+                $('#progress span').text(data.progress + '% Completed');
+                $('#progress').width(data.progress + '%');
+                $('#total_waiting').text(data.total_waiting);
+                $('#total_created').text(data.total_created);
+                $('#total_rejected').text(data.total_rejected);
+
+                _.each(data.jobs, function (item) {
+
+                    var panel = $('#panel-' + item.id);
+                    var title = panel.find('.panel-heading > .panel-title');
+                    var fa = panel.find('.panel-title > .fa');
+                    var message_area = panel.find('.panel-body .message-area');
+
+                    panel.removeClass('panel-info');
+                    panel.removeClass('panel-success');
+                    panel.removeClass('panel-danger');
+
+                    fa.removeClass('fa-clock-o');
+                    fa.removeClass('fa-check');
+                    fa.removeClass('fa-warning');
+
+                    if (item.state === 'created') {
+                        panel.addClass('panel-success');
+                        fa.addClass('fa-check');
+                        title.text('{{ entity_name }} ' + item.input.Group + ' Created on SAP');
+
+                        {#                         var message = "Result: ";#}
+
+                        var results = ['<div class="col-md-12 text-center"><h2><strong>Results</strong></h2></div>'];
+                        _.mapObject(item.output, function (val, key) {
+                            results.push("<div class='col-md-3'><strong>" + key + ": </strong> " + val + "</div>");
+                        });
+                        results.push('<div class="col-md-12"><hr></div>')
+                        {#                         message +=  + '<hr>';#}
+
+                        message_area.html(results.join(''));
+                        return;
+                    }
+                    if (item.state === 'rejected' || item.state === 'rejected_queued') {
+                        panel.addClass('panel-danger');
+                        fa.addClass('fa-warning');
+                        if (item.state === 'rejected_queued') {
+                            title.text('{{ importer_type }} ' + item.input.Group + ' Rejected Queued');
+                        } else {
+                            title.text('{{ importer_type }} ' + item.input.Group + ' Rejected');
+                        }
+                        var url_download_screenshot;
+                        if (item.screenshot) {
+                            url_download_screenshot = "<a class='btn btn-primary btn-sm' target='_blank' href='" + item.screenshot + "'><i class='fa fa-download'></i> Download Screenshot</a>"
+                        } else {
+                            url_download_screenshot = "";
+                        }
+                        var message = '<div class="col-md-12"><br> <div class="importer-error" title="' + item.output.error_sap + '">' + item.output.error +
+                            " " + url_download_screenshot + "</div><hr></div>";
+
+                        message_area.html(message)
+                        return;
+                    }
+                    if (item.state !== 'created' && item.state !== 'rejected' && item.state !== 'rejected_queued') {
+                        panel.addClass('panel-info');
+                        fa.addClass('fa-clock-o');
+                        title.text('{{ importer_type }} ' + item.input.Group + ' Waiting to be executed');
+                        message_area.html('')
+                        return;
+                    }
+
+                });
+
+                setTimeout(doPoll, 30000);
+            })
+        }
+
+        doPoll();
+    </script>
+{% endblock %}

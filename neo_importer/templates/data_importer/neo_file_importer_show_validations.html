@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% load neo_importer_extras %}
+{% block breadcrumb %}
+    <ol class="breadcrumb zdbreadcrumb">
+        <li><a href="/">Home</a></li>
+        <li class=""><a href="{{ importer.get_absolute_url }}">{{ importer_title }}</a></li>
+        <li class=""><a href="{{ importer.get_upload_file_url }}">{{ importer_title }} Upload File</a></li>
+        <li class="active">{{ importer_title }} Validating</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <h1 class="tile-title display-inlineblock">Validation Summmary</h1>
+    <h2 class="subtitle">Importing {{ entity_name }}s</h2>
+{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{{ MEDIA_URL }}css/sweet-alert.css">
+{% endblock %}
+
+
+{% block content %}
+    <div class="col-xs-12 step-container">
+        <div class="step forward" data-step="1">
+            <p class="step-1">Upload file</p>
+            <p class="step-2">Document <br> importation review</p>
+            <p class="step-3">Transaction <br> completed</p>
+        </div>
+    </div>
+    <div class="col-xs-12">
+        <div class="tile-box">
+            <form method="post" action="{{ process_file_url }}">{% csrf_token %}
+
+                {% if results.data.errors %}
+                    <div class="alert alert-danger alert-dismissible" role="alert">
+                        <button class="close" type="button" data-dismiss="alert" aria-hidden="true"><i
+                                class="fa fa-times"></i></button>
+                        <p>Your file contains errors, please check the details below.</p>
+                    </div>
+                    <br>
+                {% endif %}
+                <div class="row">
+                    {% if  results.data.infos %}
+                        <div class="col-xs-12  col-sm-6 col-md-3">
+                            <div class="zd-small-box success">
+                                <div class="inner">
+                                    <h3>{{ results.data.infos|length }}</h3>
+                                    <p>{{ entity_name }}s correctly loaded</p>
+                                </div>
+                                <div class="icon">
+                                    <span class="fa fa-check"></span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if  results.data.errors %}
+                        <div class="col-xs-12  col-sm-6 col-md-3">
+                            <div class="zd-small-box danger">
+                                <div class="inner">
+                                    <h3>{{ results.data.errors|length }}</h3>
+                                    <p>{{ entity_name }}s rejected</p>
+                                </div>
+                                <div class="icon">
+                                    <span class="fa fa-warning"></span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="col-xs-12  col-sm-6 col-md-3">
+                        <div class="zd-small-box default">
+                            <div class="inner">
+                                {% with results.data.infos|length as infos %}
+                                    {% with  results.data.errors|length as errors %}
+                                        <h3>{{ infos|add:errors }} </h3>
+                                    {% endwith %}
+                                {% endwith %}
+                                <p>Total {{ entity_name }}s</p>
+                            </div>
+                            <div class="icon">
+                                <span class="fa fa-hashtag"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-xs-6 col-lg-6 pull-left text-left">
+                        <small>Please don't forget to click on Process button to go ahead with the transaction.</small>
+                    </div>
+                    <div class="col-xs-4 col-lg-3 pull-right text-right">
+                        {% if results.data.infos|length > 0 %}
+                            <input class="btn btn-success valid-process" type="submit" name="process_importer"
+                                   value="Process">
+                            <input name="file_upload_history" type="hidden" value="{{ file_upload_history.id }}">
+                            {#                    <a href="{% comment %}{% url flowbot:neo_process_batch file_upload_history.id %}{% endcomment %}"#}
+                            {#                       class="btn btn-primary">#}
+                            {#                        Send {{ key }}s#}
+                            {#                    </a>#}
+                        {% endif %}
+{#                        <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#collapseExample"#}
+{#                                aria-expanded="false" aria-controls="collapseExample">#}
+{#                            Import a new {{ entity_name }}s file#}
+{#                        </button>#}
+                        <a class="font-bold underbutton color-info all-panels-trigger" href="javascript:void(0)">Expand
+                            all</a>
+                    </div>
+                </div>
+                {#                        <hr>#}
+                <!-- Detail view content -->
+                <div class="summary-panel">
+                    <div class="panel-group summary">
+                        {% for item in results.data.errors %}
+                            <div class="panel panel-default">
+
+                                <a href="#err-{{ forloop.counter0 }}-content" data-toggle="collapse"
+                                   class="panel-trigger">
+                                    <div class="zd-callout panel-heading summary zd-callout-danger">
+                                        <h6><i class="fa fa-exclamation-triangle"></i>&nbsp;
+                                            {% if results.columns_to_group.keys %}
+                                                {{ results.columns_to_group.keys|join:', ' }}{% else %}Line
+                                                {{ item.first_line }}{% endif %}
+                                            : {{ results|get_columns_to_group_values:item.group|join:', ' }}
+                                            was not validated</h6>
+                                        <i class="indicator fa fa-chevron-down"></i>
+                                    </div>
+                                </a>
+                                <div class="panel-collapse collapse not-menu" id="err-{{ forloop.counter0 }}-content">
+                                    <div class="panel-body danger">
+                                        <div class="col-xs-12">
+                                            <div class="row">
+
+                                                {% if item.first_line  != item.last_line %}
+                                                    Lines {{ item.first_line }} to {{ item.last_line }} will not be
+                                                    processed <br>
+                                                {% else %}
+                                                    Line {{ item.first_line }} will not be processed <br>
+                                                {% endif %}
+
+                                                {% for msg in item.msg %}
+                                                    {% if not msg.field %}
+                                                        <span class="importer-error"> <span
+                                                                class="fa fa-times-circle"></span>
+                                                            {% if msg.line %}
+                                                                Line {{ msg.line }}:
+                                                            {% endif %}
+                                                            {{ msg.msg }}
+                                    </span> <br>
+                                                    {% endif %}
+                                                {% endfor %}
+                                                <hr>
+                                                <div class="row">
+                                                    {% block sigle_elements_errors %}
+                                                        {% for label, field_mapping in results.single_elements.items %}
+                                                            <div class="col-md-6">
+                                                                {#                                        <strong>{{ label }}: </strong> {{ item|get_item:field_mapping }}#}
+                                                                {% with item.msg|get_error:field_mapping as error %}
+                                                                    {% if error %}
+                                                                        <span class="importer-error"><strong>{{ label }}: </strong> {{ item.group|get_item:field_mapping }}</span>
+                                                                        <span class="importer-error popover-danger"
+                                                                              data-container="body"
+                                                                              data-toggle="popover" data-placement="top"
+                                                                              data-content="{{ error.msg }}"
+                                                                              title="{{ error.title }}">
+                                                             <span class="fa fa-question-circle"></span>
+                                            </span>
+                                                                    {% else %}
+                                                                        <strong>{{ label }}: </strong>
+                                                                        {{ item.group|get_item:field_mapping }}
+                                                                    {% endif %}
+                                                                {% endwith %}
+                                                            </div>
+                                                        {% endfor %}
+                                                    {% endblock %}
+                                                </div>
+
+                                                <div class="row">
+                                                    <div class="col-md-12">
+                                                        {% block group_element_errors %}
+                                                            <table class="table table-bordered table-responsive table-condensed single-elements-results">
+                                                                <thead>
+                                                                <tr>
+                                                                    {% for key in results.grouped_fields_labels %}
+                                                                        <th>{{ key }}</th>
+                                                                    {% endfor %}
+                                                                </tr>
+                                                                </thead>
+                                                                <tbody>
+
+                                                                {#                                        {% for elements in results|prepare_list_elements:item %}#}
+                                                                {#                                            <tr>#}
+                                                                {#                                            {% for key in elements %}#}
+                                                                {#                                                    <td>#}
+                                                                {#                                                        {{ key }}#}
+                                                                {#                                                    </td>#}
+                                                                {#                                            {% endfor %}#}
+                                                                {#                                            </tr>#}
+                                                                {#                                        {% endfor %}#}
+                                                                {% for row in results|prepare_list_elements:item.group %}
+                                                                    <tr>
+                                                                        {% for key in row %}
+                                                                            <td>
+                                                                                {% with item.msg|get_error:key.field as error %}
+                                                                                    {% if error and error.value == key.value %}
+                                                                                        <span class="importer-error">{{ key.value }}</span>
+                                                                                        <span class="importer-error popover-danger"
+                                                                                              data-container="body"
+                                                                                              data-toggle="popover"
+                                                                                              data-placement="top"
+                                                                                              data-content="{{ error.msg }}"
+                                                                                              title="{{ error.title }}">
+                                                                             <span class="fa fa-question-circle"></span>
+                                                                        </span>
+                                                                                    {% else %}
+                                                                                        {{ key.value }}
+                                                                                    {% endif %}
+
+                                                                                {% endwith %}
+                                                                            </td>
+                                                                        {% endfor %}
+                                                                    </tr>
+                                                                {% endfor %}
+
+                                                                </tbody>
+                                                            </table>
+                                                        {% endblock %}
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        {% for item in results.data.infos %}
+                            <div class="panel panel-success">
+                                <a href="#inf-{{ forloop.counter0 }}-content" data-toggle="collapse"
+                                   class="panel-trigger">
+                                    <div class="zd-callout panel-heading summary zd-callout-warning">
+                                        <h6><i class="fa fa-send"></i>&nbsp;
+                                            {% if results.columns_to_group.keys %}
+                                                {{ results.columns_to_group.keys|join:', ' }}{% else %}Line
+                                                {{ item.importer_extra_data.user_line_number }}{% endif %}
+                                            : {{ results|get_columns_to_group_values:item|join:', ' }}
+                                            was validated successfully
+                                        </h6>
+                                        <i class="indicator fa fa-chevron-down"></i>
+
+                                    </div>
+                                </a>
+                                <div class="panel-collapse collapse not-menu" id="inf-{{ forloop.counter0 }}-content">
+                                    <div class="panel-body warning">
+                                        <div class="row">
+                                            {% block single_elements_info %}
+                                                {% for label, field_mapping in results.single_elements.items %}
+                                                    <div class="col-md-6">
+                                                        <strong>{{ label }}: </strong> {{ item|get_item:field_mapping }}
+                                                    </div>
+                                                {% endfor %}
+                                            {% endblock %}
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-12">
+                                                {% block group_elements_info %}
+                                                    <table class="table table-bordered table-responsive table-condensed single-elements-results">
+                                                        <thead>
+                                                        <tr>
+                                                            {% for key in results.grouped_fields_labels %}
+                                                                <th>{{ key }}</th>
+                                                            {% endfor %}
+                                                        </tr>
+                                                        </thead>
+                                                        <tbody>
+
+                                                        {% for elements in results|prepare_list_elements:item %}
+                                                            <tr>
+                                                                {% for key in elements %}
+                                                                    <td>
+                                                                        {{ key.value }}
+                                                                    </td>
+                                                                {% endfor %}
+                                                            </tr>
+                                                        {% endfor %}
+
+                                                        </tbody>
+                                                    </table>
+                                                {% endblock %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <hr>
+                <div class="text-right">
+
+                    <p>Only validated {{ entity_name }}s will be processed</p>
+
+                    {% if results.data.infos|length > 0 %}
+                        <input class="btn btn-success valid-process" type="submit" name="process_importer"
+                               value="Process">
+                        <input name="file_upload_history" type="hidden" value="{{ file_upload_history.id }}">
+                        {#                    <a href="{% comment %}{% url flowbot:neo_process_batch file_upload_history.id %}{% endcomment %}"#}
+                        {#                       class="btn btn-primary">#}
+                        {#                        Send {{ key }}s#}
+                        {#                    </a>#}
+                    {% endif %}
+                    <button type="button" class="btn btn-info" data-toggle="collapse" data-target="#collapseExample"
+                            aria-expanded="false" aria-controls="collapseExample">
+                        Import a new {{ entity_name }}s file
+                    </button>
+
+                </div>
+            </form>
+
+            <form action="{{ upload_file_url }}" method="post" enctype="multipart/form-data">{% csrf_token %}
+                <br>
+                <div class="collapse {% if formset %}in{% endif %} margin-top-10" id="collapseExample">
+
+                    <div class="well">
+                        {% include 'data_importer/_neo_importer_form.html' %}
+
+                        {% block extra_form %}
+                            {% if formset %}
+                                {% include 'data_importer/_neo_file_importer_formset.html' %}
+                            {% endif %}
+                        {% endblock %}
+                        <button class="btn btn-primary" type="submit"><span
+                                class="glyphicon glyphicon-import"></span> Import file
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ MEDIA_URL }}hansondtable_importer/handsontable/moment/moment.js"></script>
+{#    <script type="text/javascript" src="{{ MEDIA_URL }}js/sweet-alert.min.js"></script>#}
+    <script src="{{ MEDIA_URL }}js/underscore.js"></script>
+    <script src="{{ MEDIA_URL }}js/neo_importer.js"></script>
+    <script>
+        $('.popover-danger').popover({
+            trigger: 'hover',
+            template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-title popover-danger"></h3><div class="popover-content"></div></div>'
+        });
+        $('.popover-info').popover({
+            trigger: 'hover',
+        });
+        $('#collapse-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('hide');
+            $('#accordion_errors .panel-collapse').collapse('hide');
+        });
+        $('#expand-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('show');
+            $('#accordion_errors .panel-collapse').collapse('show');
+        });
+    </script>
+{% endblock %}

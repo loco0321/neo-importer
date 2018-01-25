@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{#{% load zina_extras %}#}
+{% load neo_importer_extras %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="{{ upload_file_url }}">Importer {{ importer_title }}</a></li>
+        <li class="active">{{ importer_title }} Tracking</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <div class="row">
+        <div class="col-md-12">
+            <h1>{{ importer_title }} Tracking: {{ file_upload_history.original_filename }}</h1>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block content %}
+    <div class="col-md-12">
+        <div class="tile-box">
+            <div class="col-xs-12 step-container">
+                <div class="step forward" data-step="2">
+                    <p class="step-1">Upload file</p>
+                    <p class="step-2">Document <br> importation review</p>
+                    <p class="step-3">Transaction <br> completed</p>
+                </div>
+            </div>
+
+            <h3>Results Summary</h3>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="zd-small-box default">
+                        <div class="inner">
+                            {% with results.data.infos|length as infos %}
+                                {% with  results.data.errors|length as errors %}
+                                    <h3>{{ infos|add:errors }} </h3>
+                                {% endwith %}
+                            {% endwith %}
+                            <p>Total {{ entity_name }}s</p>
+                        </div>
+                        <div class="icon">
+                            <span class="fa fa-hashtag"></span>
+                        </div>
+                    </div>
+                </div>
+                {% if  results.data.infos %}
+                    <div class="col-md-3">
+                        <div class="zd-small-box success">
+                            <div class="inner">
+                                <h3>{{ results.data.infos|length }}</h3>
+                                <p>Imported Success</p>
+                            </div>
+                            <div class="icon">
+                                <span class="fa fa-check"></span>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="text-right">
+                <a class="font-bold underbutton color-info all-panels-trigger" href="javascript:void(0)">Expand
+                    all</a>
+            </div>
+            {#                        <hr>#}
+            <!-- Detail view content -->
+
+            <div class="panel-group summary">
+                {% for item in results.data.infos %}
+                    <div class="panel panel-success">
+                        <a href="#inf-{{ forloop.counter0 }}-content" data-toggle="collapse" class="panel-trigger"
+                           aria-expanded="true">
+                            <div class="zd-callout panel-heading summary zd-callout-warning">
+                                <h6><i class="fa fa-send"></i>&nbsp;
+                                    {% if results.columns_to_group.keys %}
+                                        {{ results.columns_to_group.keys|join:', ' }}{% else %}Line
+                                        {{ item.importer_extra_data.user_line_number }}{% endif %}
+                                    : {{ results|get_columns_to_group_values:item|join:', ' }}
+                                    was imported successfully
+                                </h6>
+                                <i class="indicator fa fa-chevron-up"></i>
+
+                            </div>
+                        </a>
+                        {#                        <div class="panel-heading" role="tab" id="headingOne">#}
+                        {#                            <a role="button" data-toggle="collapse"#}
+                        {#                               href="#accordion-{{ forloop.counter0 }}" aria-expanded="true"#}
+                        {#                               aria-controls="collapse_{{ forloop.counter0 }}">#}
+                        {#                                <h4 class="panel-title"><span class="fa fa-check"></span>#}
+                        {#                                    {% if results.columns_to_group.keys %}#}
+                        {#                                        {{ results.columns_to_group.keys|join:', ' }}{% else %}Line#}
+                        {#                                        {{ item.importer_extra_data.user_line_number }}{% endif %}: {{ results|get_columns_to_group_values:item|join:', ' }}#}
+                        {#                                    was imported successfully#}
+                        {#                                </h4>#}
+                        {#                            </a>#}
+                        {#                        </div>#}
+                        <div id="inf-{{ forloop.counter0 }}-content" class="panel-collapse not-menu collapse in"
+                             role="tabpanel" aria-labelledby="heading_{{ forloop.counter0 }}">
+                            <div class="panel-body">
+                                <div class="row">
+                                    {% for label, field_mapping in results.single_elements.items %}
+                                        <div class="col-md-6">
+                                            <strong>{{ label }}: </strong> {{ item|get_item:field_mapping }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <table class="table table-bordered table-responsive table-condensed">
+                                            <thead>
+                                            <tr>
+                                                {% for key in results.grouped_fields_labels %}
+                                                    <th>{{ key }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+
+                                            {% for elements in results|prepare_list_elements:item %}
+                                                <tr>
+                                                    {% for key in elements %}
+                                                        <td>
+                                                            {{ key.value }}
+                                                        </td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {#        {% if not file_upload_history.state %}#}
+
+            <a class="btn btn-info pull-right" href="{{ upload_file_url }}">
+                Import a new {{ entity_name }} file
+            </a>
+            <div class="clearfix"></div>
+
+
+            {#        {% else %}#}
+            {#            <h3>State:</h3> {{ file_upload_history.state }}#}
+            {#        {% endif %}#}
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ MEDIA_URL }}hansondtable_importer/handsontable/moment/moment.js"></script>
+    <script src="{{ MEDIA_URL }}js/underscore.js"></script>
+    <script>
+        Jquery.ajaxSetup({cache: false});
+        $('.popover-danger').popover({
+            trigger: 'hover',
+            template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-title popover-danger"></h3><div class="popover-content"></div></div>'
+        });
+        $('.popover-info').popover({
+            trigger: 'hover',
+        });
+        $('#collapse-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('hide');
+            $('#accordion_errors .panel-collapse').collapse('hide');
+        });
+        $('#expand-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('show');
+            $('#accordion_errors .panel-collapse').collapse('show');
+        });
+        {#        function doPoll() {#}
+        {#            $.get("{% url flowbot:ajax_polling_job_status file_upload_history.id %}", function (data) {#}
+        {##}
+        {#                $('#last-update').text(moment(new Date()).format("DD/MM/YYYY HH:mm:ss"));#}
+        {#                $('#last-update-icon').show().fadeOut(3000);#}
+        {##}
+        {#                $('#total').text(data.total);#}
+        {#                $('#progress span').text(data.progress+'% Completed');#}
+        {#                $('#progress').width(data.progress+'%');#}
+        {#                $('#total_waiting').text(data.total_waiting);#}
+        {#                $('#total_created').text(data.total_created);#}
+        {#                $('#total_rejected').text(data.total_rejected);#}
+        {##}
+        {#                _.each(data.jobs, function (item) {#}
+        {##}
+        {#                    var panel = $('#panel-' + item.id);#}
+        {#                    var title = panel.find('.panel-heading > .panel-title');#}
+        {#                    var fa = panel.find('.panel-title > .fa');#}
+        {#                    var message_area = panel.find('.panel-body > .message-area');#}
+        {##}
+        {#                    panel.removeClass('panel-info');#}
+        {#                    panel.removeClass('panel-success');#}
+        {#                    panel.removeClass('panel-danger');#}
+        {##}
+        {#                    fa.removeClass('fa-clock-o');#}
+        {#                    fa.removeClass('fa-check');#}
+        {#                    fa.removeClass('fa-warning');#}
+        {##}
+        {#                    if (item.state == 'created') {#}
+        {#                        panel.addClass('panel-success');#}
+        {#                        fa.addClass('fa-check');#}
+        {#                        title.text('{{ key }} ' + item.input.Group + ' Created on SAP');#}
+        {#                         var message = "Result: <strong>SPO: </strong> " + item.output.FB_spo + " - " +#}
+        {#                                 "<strong>SVO: </strong>" + item.output.FB_svo + "<hr>";#}
+        {##}
+        {#                        message_area.html(message)#}
+        {#                        return;#}
+        {#                    }#}
+        {#                    if (item.state == 'rejected') {#}
+        {#                        panel.addClass('panel-danger');#}
+        {#                        fa.addClass('fa-warning');#}
+        {#                        title.text('{{ key }} ' + item.input.Group + ' Rejected');#}
+        {#                        var message ='<br> <div class="importer-error">' + item.output.error +#}
+        {#                                "</div><hr>";#}
+        {##}
+        {#                        message_area.html(message)#}
+        {#                        return;#}
+        {#                    }#}
+        {#                    if (item.state != 'created' && item.state != 'rejected') {#}
+        {#                        panel.addClass('panel-info');#}
+        {#                        fa.addClass('fa-clock-o');#}
+        {#                        title.text('{{ key }} ' + item.input.Group + ' Waiting to be executed');#}
+        {#                        message_area.html('')#}
+        {#                        return;#}
+        {#                    }#}
+        {##}
+        {#                })#}
+        {##}
+        {#                setTimeout(doPoll, 30000);#}
+        {#            })#}
+        {#        }#}
+    </script>
+{% endblock %}
