@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
+from django.core.exceptions import ValidationError
+from django.core.validators import BaseValidator
+from django.contrib.auth.models import User
 from datetime import datetime, date
 from decimal import Decimal
 import time
-import unicodedata
-
-from django.core.exceptions import ValidationError
-from django.core.validators import BaseValidator
 
 # from lib.utils import validate_date_from_file
 
@@ -62,7 +61,7 @@ class ChoicesValidator(BaseValidator):
     def __init__(self, choices, ignore_case=False, allow_empty_value=False):
         self.ignore_case = ignore_case
         if ignore_case:
-            self.choices = map(lambda x: unicode(x).upper(), choices)
+            self.choices = map(lambda x: str(x, 'utf-8').upper(), choices)
 
         else:
             self.choices = choices
@@ -71,7 +70,7 @@ class ChoicesValidator(BaseValidator):
 
     def __call__(self, value):
         if self.ignore_case:
-            value = unicode(value).upper()
+            value = str(value, 'utf-8').upper()
 
         if not (value in self.choices):
             if "" in self.choices:
@@ -97,7 +96,7 @@ class ExactLenghtValidator(BaseValidator):
        self.max_length = max_length
 
     def __call__(self, value):
-        if value and len(unicode(value)) != self.max_length:
+        if value and len(str(value, 'utf-8')) != self.max_length:
             raise ValidationError(
                 'Ensure this value is equal to {0} characters (it has {1})'.format(
                     self.max_length,
@@ -147,3 +146,16 @@ def validate_float_with_commas(value):
                 float(str(value).replace(",", "."))
         except (ValueError, TypeError) as e:
             raise ValidationError('This field requires a decimal number format')
+
+
+class ValidateUserPerms(BaseValidator):
+    def __init__(self, user, perm):
+        self.user = user
+        self.perm = perm
+
+    def __call__(self, value):
+        try:
+            if (self.user and not self.user.has_perms(self.perm)) or not self.user:
+                raise ValidationError("You don't have permissions to modify this field")
+        except:
+            raise ValidationError("You don't have permissions to modify this field")
