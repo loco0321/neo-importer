@@ -51,6 +51,9 @@
 
                 <div class="button-group text-right">
 
+                    {% block extra_buttons %}
+                    {% endblock %}
+
                     <a href="{{ template_file_url }}" class="btn btn-info"><i class="fa fa-download"></i>&nbsp;Download
                         template</a>
 
