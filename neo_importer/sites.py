@@ -20,7 +20,6 @@ class ImporterSite(object):
         for importer_key, importer in self._importers.items():
             urlpatterns += importer.get_urls()
 
-        print(urlpatterns)
         return urlpatterns
 
     @property
