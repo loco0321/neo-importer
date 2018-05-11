@@ -29,6 +29,7 @@ In main_app.urls add lines:
     ]
 
 
+
 For Create new importers add in importers file for each app "importers.py".
 
     from neo_importer import importer_site

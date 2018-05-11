@@ -5,7 +5,7 @@ setup(
     author="Zina Team",
     author_email="support.zina@nokia.com",
     description="Provide utils for importer",
-    long_description=open("README.rst").read(),
+    long_description=open("README.md").read(),
     packages=[
         "neo_importer"
     ],
