@@ -1,3 +1,6 @@
+from django.db import ProgrammingError
+
+
 class ImporterSite(object):
     name = 'importers'
 
@@ -8,8 +11,12 @@ class ImporterSite(object):
     def register(self, importer_key, importer):
         self._importers[importer_key] = importer
 
-        if hasattr(importer, 'get_permission'):
-            importer.get_permission()
+        try:
+            if hasattr(importer, 'get_permission'):
+                importer.get_permission()
+
+        except ProgrammingError:
+            print('Please Migrate first')
 
     def get_importer(self, importer_key):
         return self._importers.get(importer_key)
@@ -20,7 +27,6 @@ class ImporterSite(object):
         for importer_key, importer in self._importers.items():
             urlpatterns += importer.get_urls()
 
-        print(urlpatterns)
         return urlpatterns
 
     @property
