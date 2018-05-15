@@ -116,7 +116,10 @@ class FileUploadHistory(models.Model):
         if not isinstance(data, str):
             data = json.dumps(data, default=lambda o: o.__dict__)
 
-        data = zlib.compress(bytearray(data, encoding='UTF-8'), 9)
+        try:
+            data = zlib.compress(bytearray(data, encoding='UTF-8'), 9)
+        except:
+            data = zlib.compress(data, 9)
         return base64.b64encode(data)
 
     def decode_data(self, data):
