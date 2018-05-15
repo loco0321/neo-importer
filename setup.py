@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
     name="neo-importer",
-    version='0.1',
+    version='0.1.1',
     author="Zina Team",
     author_email="support.zina@nokia.com",
     description="Provide utils for importer",

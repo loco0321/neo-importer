@@ -68,7 +68,10 @@ class NeoImporterReport(object):
     def to_encoded_json(self):
         import zlib, base64
         j = json.dumps(self, default=lambda o: o.__dict__)
-        return base64.b64encode(zlib.compress(bytearray(j, encoding='UTF-8'),9)).decode('utf-8')
+        try:
+            return base64.b64encode(zlib.compress(bytearray(j, encoding='UTF-8'), 9)).decode('utf-8')
+        except:
+            return base64.b64encode(zlib.compress(j,9)).decode('utf-8')
 
     def create_excel_report(self, fileuploadhistory, importer):
         from xlutils.copy import copy
