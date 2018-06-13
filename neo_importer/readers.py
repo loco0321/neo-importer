@@ -8,6 +8,7 @@ from xlrd.biffh import XLRDError
 import logging
 
 from neo_importer.exceptions import ImporterError
+from neo_importer import utils
 
 
 class Reader(object):
@@ -67,7 +68,7 @@ class ExcelReader(Reader):
             elif types[i] == XL_CELL_BOOLEAN: # int (boolean)
                 values[i] = True if v == 1 else False
         if convert_to_string:
-            values = list(map(str, values))
+            values = list(map(utils.handle_string, values))
         return values
 
     def is_empty_line(self, types):
