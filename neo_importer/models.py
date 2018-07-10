@@ -54,7 +54,7 @@ class FileUploadHistory(models.Model):
     #     pass
         # user_model = get_user_model() TODO: Fix import
     # When user is None, the instance was created by scripts etc.
-    user = models.ForeignKey(get_user_model(), null=True, blank=True, related_name='file_upload_history', on_delete=models.SET_NULL)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, related_name='file_upload_history', on_delete=models.SET_NULL)
 
     # Execution attributes
     results = models.TextField(blank=True)
