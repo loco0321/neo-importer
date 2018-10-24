@@ -12,7 +12,9 @@ setup(
     include_package_data=True,
     #package_dir={'': '.'},
     install_requires=[
-        'six==1.10.0'
+        'six==1.10.0',
+        'xlrd==1.1.0',
+        'xlwt==1.3.0',
         # 'python-ldap==2.4.22',
         # 'django-auth-ldap==1.2.7',
         # 'django-compressor==1.6',
