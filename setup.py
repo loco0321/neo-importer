@@ -1,7 +1,7 @@
 from setuptools import setup
 setup(
     name="neo-importer",
-    version='0.1.3',
+    version='0.1.4',
     author="Zina Team",
     author_email="support.zina@nokia.com",
     description="Provide utils for importer",
@@ -12,6 +12,9 @@ setup(
     include_package_data=True,
     #package_dir={'': '.'},
     install_requires=[
+        'xlwt==1.3.0',
+        'xlrd==1.1.0',
+        'xlutils==2.0.0',
         # 'python-ldap==2.4.22',
         # 'django-auth-ldap==1.2.7',
         # 'django-compressor==1.6',

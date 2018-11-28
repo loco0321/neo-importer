@@ -12,6 +12,7 @@ import unicodedata
 import sys
 from functools import update_wrapper
 
+import six
 import xlwt
 from decimal import Decimal
 
@@ -36,8 +37,11 @@ from neo_importer.forms import NeoFileImporterForm
 from neo_importer.helper import NeoResultHelper
 from neo_importer.models import FileUploadHistory
 from neo_importer.readers import ExcelReaderAllAsString, ExcelReaderInMemoryAllAsString
+from neo_importer.serializers import NeoFileImporterSerializer
 from neo_importer.sheets import SheetData, ExcelData
 from neo_importer.validators import RequiredValidator
+from neo_importer.views import UploadFileApiView, ImporterInformationApiView, DetailFileHistoryApiView, \
+    ValidateFileHistoryApiView, ProcessFileHistoryApiView, ResultsFileHistoryApiView
 
 
 class NeoImporterReport(object):
@@ -171,7 +175,11 @@ class NeoImporterReport(object):
             return workbook
 
     def as_abbreviated_text(self):
-        return smart_unicode(self, 'utf-8')[0:1000]
+        if six.PY2:
+            return smart_unicode(self, 'utf-8')[0:1000]
+
+        else:
+            return str(self)[0:1000]
 
 
 class NeoImporter(object):
@@ -486,15 +494,15 @@ class NeoImporter(object):
             transaction.commit()
             self.report.add_error(e.detailed_user_message() + repr(traceback.format_exc()))
             raise Exception(e, None, sys.exc_info()[2])
-        except Exception as e:
-            transaction.rollback()
-            file_upload_history.results = str(e)
-            file_upload_history.state = FileUploadHistory.FAILED
-            file_upload_history.finish_execution_timestamp = datetime.now()
-            file_upload_history.save(force_update=True)
-            transaction.commit()
-            self.report.add_error(str(e) + repr(traceback.format_exc()))
-            raise Exception(e, None, sys.exc_info()[2])
+        # except Exception as e:
+        #     transaction.rollback()
+        #     file_upload_history.results = str(e)
+        #     file_upload_history.state = FileUploadHistory.FAILED
+        #     file_upload_history.finish_execution_timestamp = datetime.now()
+        #     file_upload_history.save(force_update=True)
+        #     transaction.commit()
+        #     self.report.add_error(str(e) + repr(traceback.format_exc()))
+        #     raise Exception(e, None, sys.exc_info()[2])
         else:
             transaction.commit()
             return self.report
@@ -608,7 +616,10 @@ class GroupNeoImporter(NeoImporter):
                         if hasattr(e, 'messages'):
                             message = e.messages[0]
                         else:
-                            message = unicode(e)
+                            if six.PY2:
+                                message = unicode(e)
+                            else:
+                                message = str(e)
 
                         self.add_error(u'Line %s: %s' % (self.user_line_number - 1, message), self._grouped_rows)
                     except UnicodeDecodeError:
@@ -642,9 +653,9 @@ class GroupNeoImporter(NeoImporter):
             self._last_line_of_group += 1
             self._current_group_has_errors = True
 
-        except Exception as e: # We do not want to set current_group_has_errors for process_last_set_of_rows errors
-            self._current_group_has_errors = True
-            raise Exception(e, None, sys.exc_info()[2])
+        # except Exception as e: # We do not want to set current_group_has_errors for process_last_set_of_rows errors
+        #     self._current_group_has_errors = True
+        #     raise Exception(e, None, sys.exc_info()[2])
 
         else:
             if result.get('cleaned'):
@@ -772,6 +783,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     template_titles_line = 0
     custom_url_name = None
     app_label_url = 'importers'
+    api_label_url = 'api'
 
     def __init__(self, reader=ExcelReaderAllAsString(encoding='utf-8'), process_importer=False, *args, **kwargs):
 
@@ -1084,6 +1096,10 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     def get_importer_link():
         return None
 
+    @staticmethod
+    def get_api_importer_link():
+        return None
+
     def get_current_group(self, row):
         "It iterates all key columns and create a list with its values"
         current_group = []
@@ -1266,6 +1282,65 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
                 cls.wrap(cls.results_file_view),
                 cls.get_kwargs_results(),
                 name='%s_results_file' % cls.get_url_name()
+            ),
+            # url(r'^(.+)/history/$',
+            #     wrap(self.history_view),
+            #     name='%s_%s_history' % info),
+            # url(r'^(.+)/delete/$',
+            #     wrap(self.delete_view),
+            #     name='%s_%s_delete' % info),
+            # url(r'^(.+)/$',
+            #     wrap(self.change_view),
+            #     name='%s_%s_change' % info),
+        )
+        return urlpatterns
+
+    @classmethod
+    def get_api_urls(cls):
+        from django.conf.urls import url
+
+        urlpatterns = (
+            url(r'^%s/%s/%s/upload-file/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                # cls.wrap(cls.api_upload_file_view),
+                cls.wrap(UploadFileApiView.as_view()),
+                cls.get_kwargs(),
+                name='%s_api_upload_file' % cls.get_url_name()
+                ),
+            url(r'^%s/%s/%s/download-template/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(cls.download_template_file_view),
+                cls.get_kwargs(),
+                name='%s_api_download_template' % cls.get_url_name()
+                ),
+            url(r'^%s/%s/%s/information/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(ImporterInformationApiView.as_view()),
+                cls.get_kwargs(),
+                name='%s_api_information' % cls.get_url_name()
+                ),
+            url(
+                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(DetailFileHistoryApiView.as_view()),
+                cls.get_kwargs(),
+                name='%s_api_detail_file' % cls.get_url_name()
+            ),
+            url(
+                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/validate-file/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(ValidateFileHistoryApiView.as_view()),
+                cls.get_kwargs(),
+                name='%s_api_validate_file' % cls.get_url_name()
+            ),
+            url(
+                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/process-file/$' % (
+                    cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(ProcessFileHistoryApiView.as_view()),
+                cls.get_kwargs_process(),
+                name='%s_api_process_file' % cls.get_url_name()
+            ),
+            url(
+                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/results-file/$' % (
+                    cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                cls.wrap(ResultsFileHistoryApiView.as_view()),
+                cls.get_kwargs_results(),
+                name='%s_api_results_file' % cls.get_url_name()
             ),
             # url(r'^(.+)/history/$',
             #     wrap(self.history_view),
@@ -1497,6 +1572,10 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     def get_form(cls):
         return NeoFileImporterForm
 
+    @classmethod
+    def get_serializer_class(cls):
+        return NeoFileImporterSerializer
+
     def get_formset_class(self):
         return None
 
@@ -1522,6 +1601,10 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         app_label_url = cls.app_label_url or cls.__module__.split('.')[0]
 
         return slugify(app_label_url)
+
+    @classmethod
+    def get_api_label_url(cls):
+        return slugify(cls.api_label_url)
 
     @classmethod
     def get_url_name(cls):
@@ -1569,3 +1652,28 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     def get_html_helper_messages(cls):
         return None
 
+    @classmethod
+    def get_api_template_file_url(cls):
+        if cls.get_api_importer_link():
+            return cls.get_api_importer_link()
+        return reverse('api_importers:{0}_api_download_template'.format(cls.get_url_name()))
+
+    @classmethod
+    def get_api_upload_file_url(cls):
+        return reverse('api_importers:{0}_api_upload_file'.format(cls.get_url_name()))
+
+    @classmethod
+    def get_api_process_file_url(cls, file_upload_id):
+        return reverse('api_importers:{0}_api_process_file'.format(cls.get_url_name()), args=(file_upload_id,))
+
+    @classmethod
+    def get_api_results_file_url(cls, file_upload_id):
+        return reverse('api_importers:{0}_api_results_file'.format(cls.get_url_name()), args=(file_upload_id,))
+
+    @classmethod
+    def get_api_validate_file_url(cls, file_upload_id):
+        return reverse('api_importers:{0}_api_validate_file'.format(cls.get_url_name()), args=(file_upload_id,))
+
+    @classmethod
+    def get_api_detail_file_url(cls, file_upload_id):
+        return reverse('api_importers:{0}_api_detail_file'.format(cls.get_url_name()), args=(file_upload_id,))

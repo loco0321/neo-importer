@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import six
 from django.core.exceptions import ValidationError
 from django.core.validators import BaseValidator
 from django.contrib.auth.models import User
@@ -61,7 +62,13 @@ class ChoicesValidator(BaseValidator):
     def __init__(self, choices, ignore_case=False, allow_empty_value=False):
         self.ignore_case = ignore_case
         if ignore_case:
-            self.choices = map(lambda x: str(x, 'utf-8').upper(), choices)
+            if six.PY2:
+                self.choices = map(lambda x: str(x, 'utf-8').upper(), choices)
+
+            else:
+                self.choices = map(lambda x: str(x).upper(), choices)
+
+            self.choices = list(self.choices)
 
         else:
             self.choices = choices
@@ -70,7 +77,11 @@ class ChoicesValidator(BaseValidator):
 
     def __call__(self, value):
         if self.ignore_case:
-            value = str(value, 'utf-8').upper()
+            if six.PY2:
+                value = str(value, 'utf-8').upper()
+
+            else:
+                value = str(value).upper()
 
         if not (value in self.choices):
             if "" in self.choices:

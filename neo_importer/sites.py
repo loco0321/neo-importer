@@ -33,6 +33,17 @@ class ImporterSite(object):
     def urls(self):
         return self.get_urls(), 'admin', self.name
 
+    def get_api_urls(self):
+        urlpatterns = ()
+        for importer_key, importer in self._importers.items():
+            urlpatterns += importer.get_api_urls()
+
+        return urlpatterns
+
+    @property
+    def api_urls(self):
+        return self.get_api_urls(), 'admin', 'api_%s' % self.name
+
     def get_importers(self):
         return self._importers
 
