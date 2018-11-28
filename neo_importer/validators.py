@@ -37,6 +37,10 @@ class DateValidator(BaseValidator):
 
     def __call__(self, value):
         if value:
+            value = value.lower()
+            if value in ('na', 'n/a'):
+                return
+
             for d_format in self.date_formats:
                 try:
                     datetime.strptime(value, d_format)

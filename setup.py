@@ -1,17 +1,18 @@
 from setuptools import setup
 setup(
     name="neo-importer",
-    version='0.1.4',
+    version='0.1.10',
     author="Zina Team",
     author_email="support.zina@nokia.com",
     description="Provide utils for importer",
-    long_description=open("README.rst").read(),
+    long_description=open("README.md").read(),
     packages=[
         "neo_importer"
     ],
     include_package_data=True,
     #package_dir={'': '.'},
     install_requires=[
+        'six==1.10.0',
         'xlwt==1.3.0',
         'xlrd==1.1.0',
         'xlutils==2.0.0',
