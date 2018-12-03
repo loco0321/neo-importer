@@ -19,7 +19,7 @@ class NeoFileImporterSerializer(serializers.ModelSerializer):
         self.importer = kwargs.pop('importer', None)
 
         super(NeoFileImporterSerializer, self).__init__(*args, **kwargs)
-
+        #
         self.valid_extensions = ['xls', 'xlsx']
         if process_importer or self.no_validate_file:
             self.fields['uploaded_file'].required = False
@@ -39,9 +39,8 @@ class NeoFileImporterSerializer(serializers.ModelSerializer):
         if not self.no_validate_file:
             self.importer.validate_template(file_uploaded)
 
-    def clean_uploaded_file(self):
+    def validate_uploaded_file(self, the_file):
         "It always accept zip files, but it validate the first file inside the zip file."
-        the_file = self.cleaned_data['uploaded_file']
         filename = the_file.name
         # if len(filename) > 50:
         #     raise forms.ValidationError('The file name is too big')

@@ -759,9 +759,49 @@ def neo_data_importer_view_decorator(view, cacheable=False):
         importer_class = kwargs.pop('importer_class')
         importer = importer_class(user=user, process_importer=kwargs.pop('process', False))
 
-        # TODO: Active perms validation
-        # if not user.has_perms(importer.get_permissions()):
-        #     return HttpResponseForbidden()
+        if not user.has_perms(importer.get_permissions()):
+            return HttpResponseForbidden()
+
+        kwargs['importer'] = importer
+    #     if not self.has_permission(request):
+    #         return self.login(request)
+        return view(request, *args, **kwargs)
+    if not cacheable:
+        inner = never_cache(inner)
+    # We add csrf_protect here so this function can be used as a utility
+    # function for any view, without having to repeat 'csrf_protect'.
+    if not getattr(view, 'csrf_exempt', False):
+        inner = csrf_protect(inner)
+    return update_wrapper(inner, view)
+
+
+def neo_data_importer_api_view_decorator(view, cacheable=False):
+    """
+    Decorator to create an admin view attached to this ``AdminSite``. This
+    wraps the view and provides permission checking by calling
+    ``self.has_permission``.
+
+    You'll want to use this from within ``AdminSite.get_urls()``:
+
+        class MyAdminSite(AdminSite):
+
+            def get_urls(self):
+                from django.conf.urls.defaults import patterns, url
+
+                urls = super(MyAdminSite, self).get_urls()
+                urls += patterns('',
+                    url(r'^my_view/$', self.admin_view(some_view))
+                )
+                return urls
+
+    By default, admin_views are marked non-cacheable using the
+    ``never_cache`` decorator. If the view can be safely cached, set
+    cacheable=True.
+    """
+    def inner(request, *args, **kwargs):
+        user = request.user
+        importer_class = kwargs.pop('importer_class')
+        importer = importer_class(user=user, process_importer=kwargs.pop('process', False))
 
         kwargs['importer'] = importer
     #     if not self.has_permission(request):
@@ -1252,6 +1292,13 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         return update_wrapper(wrapper, view)
 
     @classmethod
+    def wrap_api_view(cls, view):
+        def wrapper(*args, **kwargs):
+            return neo_data_importer_api_view_decorator(view)(*args, **kwargs)
+
+        return update_wrapper(wrapper, view)
+
+    @classmethod
     def get_urls(cls):
         from django.conf.urls import url
 
@@ -1306,43 +1353,43 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         urlpatterns = (
             url(r'^%s/%s/%s/upload-file/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
                 # cls.wrap(cls.api_upload_file_view),
-                cls.wrap(UploadFileApiView.as_view()),
+                cls.wrap_api_view(UploadFileApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_upload_file' % cls.get_url_name()
                 ),
             url(r'^%s/%s/%s/download-template/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(cls.download_template_file_view),
+                cls.wrap_api_view(cls.download_template_file_view),
                 cls.get_kwargs(),
                 name='%s_api_download_template' % cls.get_url_name()
                 ),
             url(r'^%s/%s/%s/information/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(ImporterInformationApiView.as_view()),
+                cls.wrap_api_view(ImporterInformationApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_information' % cls.get_url_name()
                 ),
             url(
                 r'^%s/%s/%s/(?P<pk>\d+|__pk__)/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(DetailFileHistoryApiView.as_view()),
+                cls.wrap_api_view(DetailFileHistoryApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_detail_file' % cls.get_url_name()
             ),
             url(
                 r'^%s/%s/%s/(?P<pk>\d+|__pk__)/validate-file/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(ValidateFileHistoryApiView.as_view()),
+                cls.wrap_api_view(ValidateFileHistoryApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_validate_file' % cls.get_url_name()
             ),
             url(
                 r'^%s/%s/%s/(?P<pk>\d+|__pk__)/process-file/$' % (
                     cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(ProcessFileHistoryApiView.as_view()),
+                cls.wrap_api_view(ProcessFileHistoryApiView.as_view()),
                 cls.get_kwargs_process(),
                 name='%s_api_process_file' % cls.get_url_name()
             ),
             url(
                 r'^%s/%s/%s/(?P<pk>\d+|__pk__)/results-file/$' % (
                     cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
-                cls.wrap(ResultsFileHistoryApiView.as_view()),
+                cls.wrap_api_view(ResultsFileHistoryApiView.as_view()),
                 cls.get_kwargs_results(),
                 name='%s_api_results_file' % cls.get_url_name()
             ),
