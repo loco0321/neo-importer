@@ -18,6 +18,15 @@ class UploadFileApiView(CreateAPIView):
     serializer_class = NeoFileImporterSerializer
     queryset = FileUploadHistory.objects.all()
 
+    def check_permissions(self, request):
+        super(UploadFileApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
+
     def get_serializer_class(self):
         serializer_class = self.kwargs.get('importer').get_serializer_class()
 
@@ -31,7 +40,7 @@ class UploadFileApiView(CreateAPIView):
         serializer_class = self.get_serializer_class()
         kwargs['context'] = self.get_serializer_context()
         kwargs['user'] = self.request.user
-        kwargs['process_importer'] = False,
+        kwargs['process_importer'] = False
         kwargs['importer'] = self.kwargs.get('importer')
 
         return serializer_class(*args, **kwargs)
@@ -49,10 +58,28 @@ class DetailFileHistoryApiView(RetrieveAPIView):
     serializer_class = FileUploadHistorySerializer
     queryset = FileUploadHistory.objects.all()
 
+    def check_permissions(self, request):
+        super(DetailFileHistoryApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
+
 
 class ValidateFileHistoryApiView(GenericAPIView,):
     serializer_class = NeoFileImporterSerializer
     queryset = FileUploadHistory.objects.all()
+
+    def check_permissions(self, request):
+        super(ValidateFileHistoryApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
 
     def get_queryset(self):
         return super(ValidateFileHistoryApiView, self).get_queryset().filter(
@@ -121,6 +148,15 @@ class ValidateFileHistoryApiView(GenericAPIView,):
 class ProcessFileHistoryApiView(GenericAPIView,):
     serializer_class = NeoFileImporterSerializer
     queryset = FileUploadHistory.objects.all()
+
+    def check_permissions(self, request):
+        super(ProcessFileHistoryApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
 
     def get_queryset(self):
         return super(ProcessFileHistoryApiView, self).get_queryset().filter(
@@ -192,6 +228,15 @@ class ResultsFileHistoryApiView(GenericAPIView,):
     serializer_class = NeoFileImporterSerializer
     queryset = FileUploadHistory.objects.all()
 
+    def check_permissions(self, request):
+        super(ResultsFileHistoryApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
+
     def get_queryset(self):
         return super(ResultsFileHistoryApiView, self).get_queryset().filter(
             type=self.kwargs.get('importer').get_importer_type()
@@ -245,6 +290,15 @@ class ResultsFileHistoryApiView(GenericAPIView,):
 
 
 class ImporterInformationApiView(APIView):
+
+    def check_permissions(self, request):
+        super(ImporterInformationApiView, self).check_permissions(request)
+        importer = self.kwargs.get('importer')
+        user = request.user
+        if not user.has_perms(importer.get_permissions()):
+            self.permission_denied(
+                request, message='Permission Denied'
+            )
 
     def get(self, request, *args, **kwargs):
 
