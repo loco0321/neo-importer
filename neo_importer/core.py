@@ -759,8 +759,9 @@ def neo_data_importer_view_decorator(view, cacheable=False):
         importer_class = kwargs.pop('importer_class')
         importer = importer_class(user=user, process_importer=kwargs.pop('process', False))
 
-        if not user.has_perms(importer.get_permissions()):
-            return HttpResponseForbidden()
+        # TODO: Active perms validation
+        # if not user.has_perms(importer.get_permissions()):
+        #     return HttpResponseForbidden()
 
         kwargs['importer'] = importer
     #     if not self.has_permission(request):
