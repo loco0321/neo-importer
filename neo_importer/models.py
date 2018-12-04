@@ -136,7 +136,10 @@ class FileUploadHistory(models.Model):
         return self.decode_data(self.form_params)
 
     def set_form_params(self, data):
-        self.form_params = self.encode_data(data)
+        form_params = self.encode_data(data)
+        if (type(form_params).__name__ == 'bytes'):
+            form_params = form_params.decode()
+        self.form_params = form_params
 
     # def get_type_flowbot(self):
     #     from flowbot.models import Transaction
