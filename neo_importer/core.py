@@ -1351,44 +1351,44 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         from django.conf.urls import url
 
         urlpatterns = (
-            url(r'^%s/%s/%s/upload-file/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+            url(r'^%s/%s/upload-file/$' % (cls.get_app_label_url(), cls.get_custom_url()),
                 # cls.wrap(cls.api_upload_file_view),
                 cls.wrap_api_view(UploadFileApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_upload_file' % cls.get_url_name()
                 ),
-            url(r'^%s/%s/%s/download-template/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+            url(r'^%s/%s/download-template/$' % (cls.get_app_label_url(), cls.get_custom_url()),
                 cls.wrap_api_view(cls.download_template_file_view),
                 cls.get_kwargs(),
                 name='%s_api_download_template' % cls.get_url_name()
                 ),
-            url(r'^%s/%s/%s/information/$' % (cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+            url(r'^%s/%s/information/$' % (cls.get_app_label_url(), cls.get_custom_url()),
                 cls.wrap_api_view(ImporterInformationApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_information' % cls.get_url_name()
                 ),
             url(
-                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
+                r'^%s/%s/(?P<pk>\d+|__pk__)/$' % (cls.get_app_label_url(),  cls.get_custom_url()),
                 cls.wrap_api_view(DetailFileHistoryApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_detail_file' % cls.get_url_name()
             ),
             url(
-                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/validate-file/$' % (cls.get_app_label_url(),  cls.get_api_label_url(), cls.get_custom_url()),
+                r'^%s/%s/(?P<pk>\d+|__pk__)/validate-file/$' % (cls.get_app_label_url(),  cls.get_custom_url()),
                 cls.wrap_api_view(ValidateFileHistoryApiView.as_view()),
                 cls.get_kwargs(),
                 name='%s_api_validate_file' % cls.get_url_name()
             ),
             url(
-                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/process-file/$' % (
-                    cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                r'^%s/%s/(?P<pk>\d+|__pk__)/process-file/$' % (
+                    cls.get_app_label_url(), cls.get_custom_url()),
                 cls.wrap_api_view(ProcessFileHistoryApiView.as_view()),
                 cls.get_kwargs_process(),
                 name='%s_api_process_file' % cls.get_url_name()
             ),
             url(
-                r'^%s/%s/%s/(?P<pk>\d+|__pk__)/results-file/$' % (
-                    cls.get_app_label_url(), cls.get_api_label_url(), cls.get_custom_url()),
+                r'^%s/%s/(?P<pk>\d+|__pk__)/results-file/$' % (
+                    cls.get_app_label_url(), cls.get_custom_url()),
                 cls.wrap_api_view(ResultsFileHistoryApiView.as_view()),
                 cls.get_kwargs_results(),
                 name='%s_api_results_file' % cls.get_url_name()
