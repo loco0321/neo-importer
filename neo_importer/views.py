@@ -1,5 +1,6 @@
 from django.shortcuts import render_to_response
 from django.template.context import RequestContext
+from rest_framework import status
 from rest_framework.generics import CreateAPIView, RetrieveAPIView, GenericAPIView
 from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
@@ -17,6 +18,18 @@ def importers_index(request, importer_site):
 class UploadFileApiView(CreateAPIView):
     serializer_class = NeoFileImporterSerializer
     queryset = FileUploadHistory.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        file_upload_history = self.perform_create(serializer)
+
+        initial_data = serializer.validated_data
+        initial_data['uploaded_file'] = file_upload_history.uploaded_file.url
+        initial_data['id'] = file_upload_history.id
+        serializer = self.get_serializer_class()(initial=initial_data)
+        headers = self.get_success_headers(serializer.data)
+        return Response(initial_data, status=status.HTTP_201_CREATED, headers=headers)
 
     def check_permissions(self, request):
         super(UploadFileApiView, self).check_permissions(request)
@@ -52,6 +65,8 @@ class UploadFileApiView(CreateAPIView):
         file_upload_history.user = self.request.user
         file_upload_history.set_form_params(self.request.POST)
         file_upload_history.save()
+
+        return file_upload_history
 
 
 class DetailFileHistoryApiView(RetrieveAPIView):
