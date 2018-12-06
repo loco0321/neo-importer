@@ -7,20 +7,20 @@ from neo_importer.exceptions import StopImporter
 from neo_importer.models import FileUploadHistory
 
 
-class NeoFileImporterSerializer(serializers.ModelSerializer):
+class NeoFileImporterSerializer(serializers.Serializer):
+    uploaded_file = serializers.FileField()
 
-    class Meta:
-        model = FileUploadHistory
-        fields = ('uploaded_file', 'id')
+    id = serializers.IntegerField(read_only=True)
 
     def __init__(self, valid_extensions=None, user=None, *args, **kwargs):
         process_importer = kwargs.pop('process_importer', False)
         self.no_validate_file = kwargs.pop('no_validate_file', False)
         self.importer = kwargs.pop('importer', None)
+        self.valid_extensions = valid_extensions or ['xls', 'xlsx']
+        self.user = user
 
         super(NeoFileImporterSerializer, self).__init__(*args, **kwargs)
-        #
-        self.valid_extensions = ['xls', 'xlsx']
+
         if process_importer or self.no_validate_file:
             self.fields['uploaded_file'].required = False
 
@@ -81,6 +81,12 @@ class NeoFileImporterSerializer(serializers.ModelSerializer):
     #         # not zip file. We reset it and the rest is the default behavior
     #         zipped_file.seek(0)
     #         return zipped_file, zipped_file.name
+    def save(self, **kwargs):
+        file_upload_history = FileUploadHistory.objects.create(
+            uploaded_file=self.validated_data.get('uploaded_file'),
+        )
+
+        return file_upload_history
 
 
 class FileUploadHistorySerializer(serializers.ModelSerializer):
@@ -93,5 +99,4 @@ class FileUploadHistorySerializer(serializers.ModelSerializer):
                   'notification_sent', 'params')
 
     def get_params(self, obj):
-
         return obj.get_form_params()
