@@ -4,6 +4,7 @@ import re
 import time
 import traceback
 from collections import OrderedDict
+from copy import copy
 
 from datetime import date, datetime
 
@@ -828,9 +829,13 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     custom_url_name = None
     app_label_url = 'importers'
     api_label_url = 'api'
+    sheet_index = 0
+    valid_column_quantity = True
+    first_column = 0
 
-    def __init__(self, reader=ExcelReaderAllAsString(encoding='utf-8'), process_importer=False, *args, **kwargs):
-
+    def __init__(self, reader=None, process_importer=False, *args, **kwargs):
+        if not reader:
+            reader = ExcelReaderAllAsString(encoding='utf-8', sheet_index=self.sheet_index)
         super(GroupNeoImporterWithRevision, self).__init__(
             reader,
             *args,
@@ -860,7 +865,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
 
     def validate_template(self, file_imported):
         # Receive in memory file
-        for line_number, row in ExcelReaderInMemoryAllAsString().lines(file_imported.read()):
+        for line_number, row in ExcelReaderInMemoryAllAsString(sheet_index=self.sheet_index).lines(file_imported.read()):
             self.user_line_number = line_number + 1  # For displaying user messages, line starts in 1
 
             if line_number == self.template_titles_line and self.validate_column_names:
@@ -919,7 +924,8 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     def validate_column_quantity(self, row):
         """If applicable, check if expected column quantity is equal to existent quantity.
         """
-
+        if not self.valid_column_quantity:
+            return
         column_quantity = len(self.columns_mapping)
         if column_quantity:
             clear_row = [i for i in row if i]
@@ -938,7 +944,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         """
         errors = []
         for column, index in zip(self.columns_label_mapping.values(), range(0, len(self.columns_label_mapping))):
-            file_column = slugify(row[index].strip())
+            file_column = slugify(row[index + self.first_column].strip())
             template_column = slugify(column.strip())
             if file_column == template_column:
                 continue
@@ -993,8 +999,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         self.columns_label_mapping = OrderedDict()
         self.columns_to_group = OrderedDict()
         self.validators = OrderedDict()
-        index = 0
-
+        index = self.first_column
         for column in self.columns_mapping:
             label = column.get('label', None)
             index_to_group = column.get('index_to_group', False)
@@ -1728,3 +1733,87 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     @classmethod
     def get_api_detail_file_url(cls, file_upload_id):
         return reverse('api_importers:{0}_api_detail_file'.format(cls.get_url_name()), args=(file_upload_id,))
+
+
+class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
+    sheets_importers = []
+    sheets_importers_objects = []
+
+    def __init__(self, reader=None, process_importer=False, *args, **kwargs):
+        self.sheets_importers_objects = []
+        super(GroupNeoImporterWithRevisionMultiSheets, self).__init__(reader=reader, process_importer=process_importer, *args, **kwargs)
+        for importer_tap_class in self.sheets_importers:
+            importer_tap_object = importer_tap_class(user=self.user, process_importer=self.process_importer)
+            self.sheets_importers_objects.append(importer_tap_object)
+
+    def get_sheet_file_history(self, file_upload_history, importer_sheet_object):
+        file_upload_history_copy = copy(file_upload_history)
+        sheet_importer = file_upload_history.sheet_importers.filter(type=importer_sheet_object.get_importer_type())
+        if sheet_importer.exists():
+            sheet_importer = sheet_importer.get()
+        else:
+            file_upload_history_copy.id = None
+            file_upload_history_copy.type = importer_sheet_object.get_importer_type()
+            sheet_importer = file_upload_history_copy
+            sheet_importer.save()
+            file_upload_history.sheet_importers.add(sheet_importer)
+        return sheet_importer
+
+    def execute(self, file_upload_history, extra_user_params={}, formset_params=None):
+        self.file_upload_history = file_upload_history
+        self.formset_params = formset_params
+        file_upload_history_copy = FileUploadHistory.objects.get(id=file_upload_history.id)
+        """ This is the entry method for DataImporter class to import a file. """
+        if file_upload_history.is_processed():
+            raise FileAlreadyProcessed('This file has already been executed.')
+        file_upload_history.state = FileUploadHistory.PROCESSING
+        file_upload_history.start_execution_timestamp = datetime.now()
+        file_upload_history.save(force_update=True)
+        transaction.commit()
+
+        self.user = file_upload_history.user
+        self.extra_user_params = extra_user_params
+
+        try:
+            for importer_sheet_object in self.sheets_importers_objects:
+                sheet_importer = self.get_sheet_file_history(file_upload_history, importer_sheet_object)
+                importer_sheet_object.execute(
+                    sheet_importer,
+                    extra_user_params=extra_user_params,
+                    formset_params=formset_params
+                )
+            self.save_historic(file_upload_history, self.report)
+            self.post_save_historic(file_upload_history)
+        except ImporterError as e:
+            transaction.rollback()
+            file_upload_history.results = e.detailed_user_message()
+            file_upload_history.state = FileUploadHistory.FAILED
+            file_upload_history.finish_execution_timestamp = datetime.now()
+            file_upload_history.save(force_update=True)
+            transaction.commit()
+            self.report.add_error(e.detailed_user_message() + repr(traceback.format_exc()))
+            raise Exception(e, None, sys.exc_info()[2])
+        else:
+            transaction.commit()
+            return self.report
+
+    def get_results(self, fileuploadhistory):
+        results = []
+        for importer in self.sheets_importers_objects:
+            sheet_file_history = self.get_sheet_file_history(fileuploadhistory, importer)
+            result = importer.result_helper(
+                file_upload_history=sheet_file_history,
+                grouped_fields=importer.grouped_fields,
+                columns_mapping=importer.columns_field_mapping,
+                columns_to_group=importer.columns_to_group
+            )
+            sheet_file_history = self.get_sheet_file_history(fileuploadhistory, importer)
+            result.load_from_json(sheet_file_history.results)
+            results.append(result)
+        return results
+
+    def get_show_validations_template(self):
+        return 'data_importer/neo_file_importer_sheets_show_validations.html'
+
+    def get_results_template(self):
+        return 'data_importer/neo_file_importer_sheets_show_results.html'

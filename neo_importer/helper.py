@@ -12,7 +12,10 @@ class NeoResultHelper(object):
         self.grouped_fields_labels = self.grouped_fields.keys()
         self.ignored_elements = kwargs.pop('ignored_elements', {})
         self.columns_to_group = kwargs.pop('columns_to_group', {})
-
+        self.file_upload_history = None
+        if kwargs.get('file_upload_history'):
+            from neo_importer.serializers import FileUploadHistorySerializer
+            self.file_upload_history = dict(FileUploadHistorySerializer(instance=kwargs.pop('file_upload_history')).data)
         self.single_elements = self.get_single_elements()
 
     def get_columns_to_group_values(self, group):

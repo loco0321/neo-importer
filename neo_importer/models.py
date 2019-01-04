@@ -3,14 +3,13 @@ import os
 
 from datetime import datetime, timedelta
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models.signals import post_delete
 
-# from compress_storage import ZipFileField
 from django.template.defaultfilters import slugify
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as u
 
 
 def content_file_name(instance, filename):
@@ -68,6 +67,8 @@ class FileUploadHistory(models.Model):
     form_params = models.TextField(blank=True, null=True)
 
     objects = FileUploadHistoryManager()
+
+    sheet_importers = models.ManyToManyField('neo_importer.FileUploadHistory', null=True, blank=True, verbose_name=u('sheet importers'))
 
     # class Meta:
     #     db_table = 'data_importer_fileuploadhistory'

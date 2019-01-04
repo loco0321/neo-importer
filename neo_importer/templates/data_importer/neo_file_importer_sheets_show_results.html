@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{#{% load zina_extras %}#}
+{% load neo_importer_extras %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb">
+        <li><a href="/">Home</a></li>
+        <li><a href="{{ upload_file_url }}">Importer {{ importer_title }}</a></li>
+        <li class="active">{{ importer_title }} Tracking</li>
+    </ol>
+{% endblock %}
+
+{% block main_title %}
+    <div class="row">
+        <div class="col-md-12">
+            <h1>{{ importer_title }} Tracking: {{ file_upload_history.original_filename }}</h1>
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block content %}
+    <div class="col-md-12">
+        <div class="tile-box">
+            <div class="col-xs-12 step-container">
+                <div class="step forward" data-step="2">
+                    <p class="step-1">Upload file</p>
+                    <p class="step-2">Document <br> importation review</p>
+                    <p class="step-3">Transaction <br> completed</p>
+                </div>
+            </div>
+            {% for result in results %}
+                <h3>Results Summary</h3>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="zd-small-box default">
+                            <div class="inner">
+                                {% with result.data.infos|length as infos %}
+                                    {% with  result.data.errors|length as errors %}
+                                        <h3>{{ infos|add:errors }} </h3>
+                                    {% endwith %}
+                                {% endwith %}
+                                <p>Total {{ entity_name }}s</p>
+                            </div>
+                            <div class="icon">
+                                <span class="fa fa-hashtag"></span>
+                            </div>
+                        </div>
+                    </div>
+                    {% if  result.data.infos %}
+                        <div class="col-md-3">
+                            <div class="zd-small-box success">
+                                <div class="inner">
+                                    <h3>{{ result.data.infos|length }}</h3>
+                                    <p>Imported Success</p>
+                                </div>
+                                <div class="icon">
+                                    <span class="fa fa-check"></span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="text-right">
+                    <a class="font-bold underbutton color-info all-panels-trigger" href="javascript:void(0)">Expand
+                        all</a>
+                </div>
+                <div class="panel-group summary">
+                    {% for item in result.data.infos %}
+                        <div class="panel panel-success">
+                            <a href="#inf-{{ forloop.counter0 }}-content" data-toggle="collapse" class="panel-trigger"
+                               aria-expanded="true">
+                                <div class="zd-callout panel-heading summary zd-callout-warning">
+                                    <h6><i class="fa fa-send"></i>&nbsp;
+                                        {% if result.columns_to_group.keys %}
+                                            {{ result.columns_to_group.keys|join:', ' }}{% else %}Line
+                                            {{ item.importer_extra_data.user_line_number }}{% endif %}
+                                        : {{ result|get_columns_to_group_values:item|join:', ' }}
+                                        was imported successfully
+                                    </h6>
+                                    <i class="indicator fa fa-chevron-up"></i>
+
+                                </div>
+                            </a>
+                            <div id="inf-{{ forloop.counter0 }}-content" class="panel-collapse not-menu collapse in"
+                                 role="tabpanel" aria-labelledby="heading_{{ forloop.counter0 }}">
+                                <div class="panel-body">
+                                    <div class="row">
+                                        {% for label, field_mapping in result.single_elements.items %}
+                                            <div class="col-md-6">
+                                                <strong>{{ label }}: </strong> {{ item|get_item:field_mapping }}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <table class="table table-bordered table-responsive table-condensed">
+                                                <thead>
+                                                <tr>
+                                                    {% for key in result.grouped_fields_labels %}
+                                                        <th>{{ key }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+
+                                                {% for elements in result|prepare_list_elements:item %}
+                                                    <tr>
+                                                        {% for key in elements %}
+                                                            <td>
+                                                                {{ key.value }}
+                                                            </td>
+                                                        {% endfor %}
+                                                    </tr>
+                                                {% endfor %}
+
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+
+            <a class="btn btn-info pull-right" href="{{ upload_file_url }}">
+                Import a new {{ entity_name }} file
+            </a>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ MEDIA_URL }}hansondtable_importer/handsontable/moment/moment.js"></script>
+    <script src="{{ MEDIA_URL }}js/underscore.js"></script>
+    <script>
+        Jquery.ajaxSetup({cache: false});
+        $('.popover-danger').popover({
+            trigger: 'hover',
+            template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-title popover-danger"></h3><div class="popover-content"></div></div>'
+        });
+        $('.popover-info').popover({
+            trigger: 'hover',
+        });
+        $('#collapse-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('hide');
+            $('#accordion_errors .panel-collapse').collapse('hide');
+        });
+        $('#expand-all').on('click', function () {
+            $('#accordion_success .panel-collapse').collapse('show');
+            $('#accordion_errors .panel-collapse').collapse('show');
+        });
+    </script>
+{% endblock %}
