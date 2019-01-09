@@ -2,12 +2,12 @@ from django.shortcuts import render_to_response
 from django.template.context import RequestContext
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, RetrieveAPIView, GenericAPIView
-from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from neo_importer.models import FileUploadHistory
 from neo_importer.serializers import NeoFileImporterSerializer, FileUploadHistorySerializer
+from neo_importer.utils import format_results
 
 
 def importers_index(request, importer_site):
@@ -142,31 +142,8 @@ class ValidateFileHistoryApiView(GenericAPIView,):
         )
 
         results = importer.get_results(file_upload_history)
-        # template = importer.get_show_validations_template()
-        if isinstance(results, list):
-            ctx['results'] = []
-            for result in results:
-                ctx['results'].append({
-                    'columns_mapping': result.columns_mapping,
-                    'columns_to_group': result.columns_to_group,
-                    'data': result.data,
-                    'grouped_fields': result.grouped_fields,
-                    'grouped_fields_labels': result.grouped_fields_labels,
-                    'ignored_elements': result.ignored_elements,
-                    'single_elements': result.single_elements,
-                    'file_upload_history': result.file_upload_history
-                })
 
-        else:
-            ctx['results'] = {
-                'columns_mapping': results.columns_mapping,
-                'columns_to_group': results.columns_to_group,
-                'data': results.data,
-                'grouped_fields': results.grouped_fields,
-                'grouped_fields_labels': results.grouped_fields_labels,
-                'ignored_elements': results.ignored_elements,
-                'single_elements': results.single_elements,
-            }
+        ctx['results'] = format_results(results)
 
         ctx['upload_file_url'] = importer.get_api_upload_file_url()
         ctx['process_file_url'] = importer.get_api_process_file_url(file_upload_history.id)
@@ -234,16 +211,7 @@ class ProcessFileHistoryApiView(GenericAPIView,):
 
         results = importer.get_results(file_upload_history)
         # template = importer.get_show_validations_template()
-        ctx['results'] = {
-            'columns_mapping': results.columns_mapping,
-            'columns_to_group': results.columns_to_group,
-            'data': results.data,
-            'grouped_fields': results.grouped_fields,
-            'grouped_fields_labels': results.grouped_fields_labels,
-            'ignored_elements': results.ignored_elements,
-            'single_elements': results.single_elements,
-
-        }
+        ctx['results'] = format_results(results)
 
         # ctx['upload_file_url'] = importer.get_api_upload_file_url()
         # ctx['process_file_url'] = importer.get_process_file_url(file_upload_history.id)
@@ -252,6 +220,7 @@ class ProcessFileHistoryApiView(GenericAPIView,):
 
     # def get(self, request, *args, **kwargs):
     #     return Response({})
+
 
 class ResultsFileHistoryApiView(GenericAPIView,):
     serializer_class = NeoFileImporterSerializer
@@ -301,16 +270,7 @@ class ResultsFileHistoryApiView(GenericAPIView,):
         results = importer.get_results(file_upload_history)
         importer.file_upload_history = file_upload_history
 
-        ctx['results'] = {
-            'columns_mapping': results.columns_mapping,
-            'columns_to_group': results.columns_to_group,
-            'data': results.data,
-            'grouped_fields': results.grouped_fields,
-            'grouped_fields_labels': results.grouped_fields_labels,
-            'ignored_elements': results.ignored_elements,
-            'single_elements': results.single_elements,
-
-        }
+        ctx['results'] = format_results(results)
 
         # ctx['upload_file_url'] = importer.get_api_upload_file_url()
         # ctx['process_file_url'] = importer.get_process_file_url(file_upload_history.id)
