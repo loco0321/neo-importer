@@ -143,16 +143,30 @@ class ValidateFileHistoryApiView(GenericAPIView,):
 
         results = importer.get_results(file_upload_history)
         # template = importer.get_show_validations_template()
-        ctx['results'] = {
-            'columns_mapping': results.columns_mapping,
-            'columns_to_group': results.columns_to_group,
-            'data': results.data,
-            'grouped_fields': results.grouped_fields,
-            'grouped_fields_labels': results.grouped_fields_labels,
-            'ignored_elements': results.ignored_elements,
-            'single_elements': results.single_elements,
+        if isinstance(results, list):
+            ctx['results'] = []
+            for result in results:
+                ctx['results'].append({
+                    'columns_mapping': result.columns_mapping,
+                    'columns_to_group': result.columns_to_group,
+                    'data': result.data,
+                    'grouped_fields': result.grouped_fields,
+                    'grouped_fields_labels': result.grouped_fields_labels,
+                    'ignored_elements': result.ignored_elements,
+                    'single_elements': result.single_elements,
+                    'file_upload_history': result.self.file_upload_history
+                })
 
-        }
+        else:
+            ctx['results'] = {
+                'columns_mapping': results.columns_mapping,
+                'columns_to_group': results.columns_to_group,
+                'data': results.data,
+                'grouped_fields': results.grouped_fields,
+                'grouped_fields_labels': results.grouped_fields_labels,
+                'ignored_elements': results.ignored_elements,
+                'single_elements': results.single_elements,
+            }
 
         ctx['upload_file_url'] = importer.get_api_upload_file_url()
         ctx['process_file_url'] = importer.get_api_process_file_url(file_upload_history.id)
