@@ -154,7 +154,7 @@ class ValidateFileHistoryApiView(GenericAPIView,):
                     'grouped_fields_labels': result.grouped_fields_labels,
                     'ignored_elements': result.ignored_elements,
                     'single_elements': result.single_elements,
-                    'file_upload_history': result.self.file_upload_history
+                    'file_upload_history': result.file_upload_history
                 })
 
         else:
