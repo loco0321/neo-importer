@@ -834,6 +834,9 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     first_column = 0
 
     def __init__(self, reader=None, process_importer=False, *args, **kwargs):
+        self.parent = kwargs.pop('parent', None)
+        self.importer_index = kwargs.pop('importer_index', None)
+        self.results_object = None
         if not reader:
             reader = ExcelReaderAllAsString(encoding='utf-8', sheet_index=self.sheet_index)
         super(GroupNeoImporterWithRevision, self).__init__(
@@ -1128,15 +1131,15 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         file_upload_history.save()
 
     def get_results(self, fileuploadhistory):
-
-        results = self.result_helper(
-            grouped_fields=self.grouped_fields,
-            columns_mapping=self.columns_field_mapping,
-            columns_to_group=self.columns_to_group
-        )
-        # results.load_from_jobs(fileuploadhistory)
-        results.load_from_json(fileuploadhistory.results)
-        return results
+        if not self.results_object:
+            self.results_object = self.result_helper(
+                grouped_fields=self.grouped_fields,
+                columns_mapping=self.columns_field_mapping,
+                columns_to_group=self.columns_to_group,
+                file_upload_history=fileuploadhistory,
+            )
+            self.results_object.load_from_json(fileuploadhistory.results)
+        return self.results_object
 
     def get_redirect_url(self):
         return None
@@ -1742,8 +1745,8 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
     def __init__(self, reader=None, process_importer=False, *args, **kwargs):
         self.sheets_importers_objects = []
         super(GroupNeoImporterWithRevisionMultiSheets, self).__init__(reader=reader, process_importer=process_importer, *args, **kwargs)
-        for importer_tap_class in self.sheets_importers:
-            importer_tap_object = importer_tap_class(user=self.user, process_importer=self.process_importer)
+        for importer_index, importer_tap_class in enumerate(self.sheets_importers):
+            importer_tap_object = importer_tap_class(user=self.user, process_importer=self.process_importer, parent=self, importer_index=importer_index)
             self.sheets_importers_objects.append(importer_tap_object)
 
     def get_sheet_file_history(self, file_upload_history, importer_sheet_object):
@@ -1762,7 +1765,6 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
     def execute(self, file_upload_history, extra_user_params={}, formset_params=None):
         self.file_upload_history = file_upload_history
         self.formset_params = formset_params
-        file_upload_history_copy = FileUploadHistory.objects.get(id=file_upload_history.id)
         """ This is the entry method for DataImporter class to import a file. """
         if file_upload_history.is_processed():
             raise FileAlreadyProcessed('This file has already been executed.')
@@ -1801,16 +1803,14 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
         results = []
         for importer in self.sheets_importers_objects:
             sheet_file_history = self.get_sheet_file_history(fileuploadhistory, importer)
-            result = importer.result_helper(
-                file_upload_history=sheet_file_history,
-                grouped_fields=importer.grouped_fields,
-                columns_mapping=importer.columns_field_mapping,
-                columns_to_group=importer.columns_to_group
-            )
-            sheet_file_history = self.get_sheet_file_history(fileuploadhistory, importer)
-            result.load_from_json(sheet_file_history.results)
+            result = importer.get_results(sheet_file_history)
             results.append(result)
         return results
+
+    def get_sheet_importer_object(self, importer_type):
+        for sheet_importer_object in self.sheets_importers_objects:
+            if sheet_importer_object.get_importer_type() == importer_type:
+                return sheet_importer_object
 
     def get_show_validations_template(self):
         return 'data_importer/neo_file_importer_sheets_show_validations.html'

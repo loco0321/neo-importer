@@ -30,7 +30,9 @@ class NeoResultHelper(object):
         return aux_columns
 
     def load_from_json(self, encoded_data):
-        self.data = FileUploadHistory().decode_data(encoded_data)
+        if not self.data:
+            self.data = FileUploadHistory().decode_data(encoded_data)
+        return self.data
 
     # def load_from_jobs(self, file_upload_history, transaction=None):
     #     result = []

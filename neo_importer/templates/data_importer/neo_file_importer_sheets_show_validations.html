@@ -115,7 +115,7 @@
                                     {% for item in result.data.errors %}
                                         <div class="panel panel-default">
 
-                                            <a href="#err-{{ forloop.counter0 }}-content" data-toggle="collapse"
+                                            <a href="#err-{{ forloop.counter0 }}-content-{{ result.file_upload_history.id }}" data-toggle="collapse"
                                                class="panel-trigger">
                                                 <div class="zd-callout panel-heading summary zd-callout-danger">
                                                     <h6><i class="fa fa-exclamation-triangle"></i>&nbsp;
@@ -128,7 +128,7 @@
                                                 </div>
                                             </a>
                                             <div class="panel-collapse collapse not-menu"
-                                                 id="err-{{ forloop.counter0 }}-content">
+                                                 id="err-{{ forloop.counter0 }}-content-{{ result.file_upload_history.id }}">
                                                 <div class="panel-body danger">
                                                     <div class="col-xs-12">
                                                         <div class="row">
@@ -241,7 +241,7 @@
                                     {% endfor %}
                                     {% for item in result.data.infos %}
                                         <div class="panel panel-success">
-                                            <a href="#inf-{{ forloop.counter0 }}-content" data-toggle="collapse"
+                                            <a href="#inf-{{ forloop.counter0 }}-content-{{ result.file_upload_history.id }}" data-toggle="collapse"
                                                class="panel-trigger">
                                                 <div class="zd-callout panel-heading summary zd-callout-warning">
                                                     <h6><i class="fa fa-send"></i>&nbsp;
@@ -256,7 +256,7 @@
                                                 </div>
                                             </a>
                                             <div class="panel-collapse collapse not-menu"
-                                                 id="inf-{{ forloop.counter0 }}-content">
+                                                 id="inf-{{ forloop.counter0 }}-content-{{ result.file_upload_history.id }}">
                                                 <div class="panel-body warning">
                                                     <div class="row">
                                                         {% block single_elements_info %}
