@@ -1,33 +1,27 @@
 # coding=utf-8
 import json
 import re
+import sys
 import time
 import traceback
+import unicodedata
 from collections import OrderedDict
 from copy import copy
-
 from datetime import date, datetime
-
-import unicodedata
-
-import sys
+from decimal import Decimal
 from functools import update_wrapper
 
 import six
 import xlwt
-from decimal import Decimal
-
 from django.contrib import messages
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseForbidden, HttpResponse
-from django.shortcuts import get_object_or_404, redirect, render_to_response, render
-from django.template.context import RequestContext
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.defaultfilters import slugify
 from django.urls import reverse
-
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from xlrd import open_workbook
@@ -40,6 +34,7 @@ from neo_importer.models import FileUploadHistory
 from neo_importer.readers import ExcelReaderAllAsString, ExcelReaderInMemoryAllAsString
 from neo_importer.serializers import NeoFileImporterSerializer
 from neo_importer.sheets import SheetData, ExcelData
+from neo_importer.utils import get_cell_mapping
 from neo_importer.validators import RequiredValidator
 from neo_importer.views import UploadFileApiView, ImporterInformationApiView, DetailFileHistoryApiView, \
     ValidateFileHistoryApiView, ProcessFileHistoryApiView, ResultsFileHistoryApiView
@@ -51,6 +46,7 @@ class NeoImporterReport(object):
         self.errors = []
         self.infos = []
         self.warnings = []
+        self.specific_cells = []
 
     def line_read(self):
         self.amount_of_lines += 1
@@ -66,6 +62,11 @@ class NeoImporterReport(object):
 
     def add_info(self, msg):
         self.infos.append(self.format_msg(msg))
+
+    def add_cell(self, specific_cells):
+        for key, data in specific_cells.items():
+            data['field'] = key
+            self.specific_cells.append(self.format_msg(data))
 
     def add_error(self, msg):
         self.errors.append(self.format_msg(msg))
@@ -198,7 +199,9 @@ class NeoImporter(object):
     * @valid_parameters: if auto_assign_columns is True, only these attributes will be used to fill self.columns attribute
     * @validate_column_names: if True the importer will read the first line content and validate with the template columns order
     """
-     # False to avoid validating columns on non specified importers
+
+    # False to avoid validating columns on non specified importers
+    specific_cells_mapping = {}
 
     def __init__(self, reader, first_valid_line=0, auto_assign_columns=False, column_quantity=0, validate_column_names=False, **kwargs):
         self.validate_column_names = validate_column_names
@@ -218,7 +221,47 @@ class NeoImporter(object):
         # It store all the cleaned data to be used later
         self.all_cleaned_data = []
         self.extra_messages = []
+        self.clean_specific_cells = {}
+        if self.specific_cells_mapping:
+            self.specific_cells_mapping = get_cell_mapping(self.specific_cells_mapping)
+        # 'field1': {
+        #     'cell': AB12,
+        #     'required': False,
+        # }
 
+    def get_data_specific_cells(self):
+        return {field_name: cell.get('value') for field_name, cell in self.specific_cells_mapping.items()}
+
+    def get_specific_cells_values(self, rows):
+        specific_cells_values = {}
+        if not self.specific_cells_mapping:
+            return {}
+        for field_name, config in self.specific_cells_mapping.items():
+            cell = config['cell']
+            specific_cells_values[field_name] = rows[cell['row']][1][cell['col']]
+        return specific_cells_values
+
+    def clean_cells(self, cell_values):
+        for field_name, cell_value in cell_values.items():
+            cell_data = self.specific_cells_mapping[field_name]
+            clean_cell_method = getattr(self, 'clean_cell_{}'.format(field_name), None)
+            if clean_cell_method:
+                try:
+                    cell_value = clean_cell_method(cell_value, cell_values)
+                except ValidationError as ve:
+                    cell_data['error'] = ', '.join(ve.messages)
+                except ImporterWarning as iw:
+                    cell_data['warning'] = ', '.join(iw.messages)
+            cell_data['value'] = cell_value
+            self.clean_specific_cells[field_name] = cell_data
+        self.report.add_cell(self.clean_specific_cells)
+        return self.clean_specific_cells
+
+    def process_specific_cells(self, lines):
+        if not self.specific_cells_mapping:
+            return
+        cells_data = self.get_specific_cells_values(lines)
+        self.clean_cells(cells_data)
 
     def _auto_assign_columns(self, data_source):
         "Columns are auto-defined by the first line of the file"
@@ -434,8 +477,9 @@ class NeoImporter(object):
         self.pre_execute(data_source)
         if self.auto_assign_columns:
             self._auto_assign_columns(data_source)
-
-        for line_number, row in self.reader.lines(data_source):
+        lines = list(self.reader.lines(data_source))
+        self.process_specific_cells(lines)
+        for line_number, row in lines:
             self.user_line_number = line_number + 1  # For displaying user messages, line starts in 1
             try:
                 if line_number == 0:
@@ -515,7 +559,8 @@ class NeoImporter(object):
 class GroupNeoImporter(NeoImporter):
     def __init__(self, reader, first_valid_line=0, auto_assign_columns=False,
                  indexes_of_key_columns_to_group=[], dependent_errors=True, *args, **kwargs):
-        super(GroupNeoImporter, self).__init__(reader, first_valid_line=first_valid_line, auto_assign_columns=auto_assign_columns, **kwargs)
+        super(GroupNeoImporter, self).__init__(reader, first_valid_line=first_valid_line,
+                                               auto_assign_columns=auto_assign_columns, **kwargs)
 
         self.indexes_of_key_columns_to_group = indexes_of_key_columns_to_group # indexes of columns that will be used to group rows
         self.dependent_errors = dependent_errors
@@ -884,8 +929,9 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
 
         if self.auto_assign_columns:
             self._auto_assign_columns(data_source)
-
-        for line_number, row in self.reader.lines(data_source):
+        lines = list(self.reader.lines(data_source))
+        self.process_specific_cells(lines)
+        for line_number, row in lines:
             self.user_line_number = line_number + 1  # For displaying user messages, line starts in 1
 
             if line_number == self.template_titles_line and self.validate_column_names:
@@ -1744,9 +1790,11 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
 
     def __init__(self, reader=None, process_importer=False, *args, **kwargs):
         self.sheets_importers_objects = []
-        super(GroupNeoImporterWithRevisionMultiSheets, self).__init__(reader=reader, process_importer=process_importer, *args, **kwargs)
+        super(GroupNeoImporterWithRevisionMultiSheets, self).__init__(reader=reader, process_importer=process_importer,
+                                                                      *args, **kwargs)
         for importer_index, importer_tap_class in enumerate(self.sheets_importers):
-            importer_tap_object = importer_tap_class(user=self.user, process_importer=self.process_importer, parent=self, importer_index=importer_index)
+            importer_tap_object = importer_tap_class(user=self.user, process_importer=self.process_importer,
+                                                     parent=self, importer_index=importer_index)
             self.sheets_importers_objects.append(importer_tap_object)
 
     def get_sheet_file_history(self, file_upload_history, importer_sheet_object):
