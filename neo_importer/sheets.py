@@ -493,9 +493,9 @@ class ExcelGenerator(object):
         self.datetime_format = datetime_format
 
         if encoding:
-            self._workbook = Workbook(encoding=encoding)
+            self._workbook = Workbook(encoding=encoding, style_compression=2)
         else:
-            self._workbook = Workbook()
+            self._workbook = Workbook(style_compression=2)
 
         self._current_sheet = None
 
