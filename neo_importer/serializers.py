@@ -41,12 +41,6 @@ class NeoFileImporterSerializer(serializers.Serializer):
 
     def validate_uploaded_file(self, the_file):
         "It always accept zip files, but it validate the first file inside the zip file."
-        filename = the_file.name
-        # if len(filename) > 50:
-        #     raise forms.ValidationError('The file name is too big')
-        # if filename.endswith('zip'):
-        #     data_source, filename = self.decompress(the_file)
-        # else:
 
         data_source, filename = the_file, the_file.name
         if not self.is_the_type_of_file_valid(filename):
@@ -64,28 +58,10 @@ class NeoFileImporterSerializer(serializers.Serializer):
         except StopImporter as e:
             raise serializers.ValidationError(mark_safe(e))
 
-    # def decompress(self, zipped_file):
-    #     "If this is a zip file it returns the first file inside the zip. Else it return the same file."
-    #     try:
-    #         # zip file
-    #         zip_file = zipfile.ZipFile(zipped_file)
-    #         internal_file_name = zip_file.namelist()[0]
-    #         extension = os.path.splitext(internal_file_name)[1]
-    #         try:
-    #             content_type = mimetypes.types_map[extension]
-    #         except KeyError:
-    #             content_type = None
-    #         the_file = SimpleUploadedFile(internal_file_name, zip_file.read(internal_file_name), content_type=content_type)
-    #         return the_file, internal_file_name
-    #     except zipfile.BadZipfile:
-    #         # not zip file. We reset it and the rest is the default behavior
-    #         zipped_file.seek(0)
-    #         return zipped_file, zipped_file.name
     def save(self, **kwargs):
         file_upload_history = FileUploadHistory.objects.create(
             uploaded_file=self.validated_data.get('uploaded_file'),
         )
-
         return file_upload_history
 
 
@@ -96,7 +72,7 @@ class FileUploadHistorySerializer(serializers.ModelSerializer):
         model = FileUploadHistory
         fields = ('id', 'uploaded_file', 'state', 'original_filename', 'type',
                   'start_execution_timestamp', 'finish_execution_timestamp',
-                  'notification_sent', 'params')
+                  'notification_sent', 'params', 'validate_end', 'celery_tasks')
 
     def get_params(self, obj):
         return obj.get_form_params()

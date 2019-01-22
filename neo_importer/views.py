@@ -117,33 +117,22 @@ class ValidateFileHistoryApiView(GenericAPIView,):
 
         ctx = {}
 
-        # form_class = importer.get_form()
-        # formset_class = importer.get_formset_class()
-
         valid_extensions = kwargs.pop('valid_extensions', ['xls', 'xlsx'])
 
         data = file_upload_history.get_form_params()
-        # form = form_class(valid_extensions, request.user, data=data, no_validate_file=True)
-        # form.is_valid()
 
-        # formset_cleaned_data = None
-        # formset = None
-        # if formset_class:
-        #     formset = formset_class(data=data)
-        #     formset.is_valid()
-        #     formset_cleaned_data = formset.cleaned_data
         serializer = self.get_serializer_class()(valid_extensions, self.request.user, data=data, no_validate_file=True)
         serializer.is_valid()
 
-        importer.execute(
+        importer.execute_importer(
             file_upload_history,
             extra_user_params=serializer.validated_data,
-            # formset_params=formset_cleaned_data
         )
 
         results = importer.get_results(file_upload_history)
 
         ctx['results'] = format_results(results)
+        ctx['celery_tasks'] = getattr(importer, 'celery_tasks', None)
 
         ctx['upload_file_url'] = importer.get_api_upload_file_url()
         ctx['process_file_url'] = importer.get_api_process_file_url(file_upload_history.id)
@@ -185,41 +174,22 @@ class ProcessFileHistoryApiView(GenericAPIView,):
 
         ctx = {}
 
-        # form_class = importer.get_form()
-        # formset_class = importer.get_formset_class()
-
         valid_extensions = kwargs.pop('valid_extensions', ['xls', 'xlsx'])
 
         data = file_upload_history.get_form_params()
-        # form = form_class(valid_extensions, request.user, data=data, no_validate_file=True)
-        # form.is_valid()
 
-        # formset_cleaned_data = None
-        # formset = None
-        # if formset_class:
-        #     formset = formset_class(data=data)
-        #     formset.is_valid()
-        #     formset_cleaned_data = formset.cleaned_data
         serializer = self.get_serializer_class()(valid_extensions, self.request.user, data=data, no_validate_file=True)
         serializer.is_valid()
 
-        importer.execute(
+        importer.execute_importer(
             file_upload_history,
             extra_user_params=serializer.validated_data,
-            # formset_params=formset_cleaned_data
         )
 
         results = importer.get_results(file_upload_history)
-        # template = importer.get_show_validations_template()
         ctx['results'] = format_results(results)
-
-        # ctx['upload_file_url'] = importer.get_api_upload_file_url()
-        # ctx['process_file_url'] = importer.get_process_file_url(file_upload_history.id)
-
+        ctx['celery_tasks'] = getattr(importer, 'celery_tasks', None)
         return Response(ctx)
-
-    # def get(self, request, *args, **kwargs):
-    #     return Response({})
 
 
 class ResultsFileHistoryApiView(GenericAPIView,):
@@ -256,9 +226,6 @@ class ResultsFileHistoryApiView(GenericAPIView,):
 
         ctx = {}
 
-        # form_class = importer.get_form()
-        # formset_class = importer.get_formset_class()
-
         valid_extensions = kwargs.pop('valid_extensions', ['xls', 'xlsx'])
 
         data = file_upload_history.get_form_params()
@@ -271,6 +238,7 @@ class ResultsFileHistoryApiView(GenericAPIView,):
         importer.file_upload_history = file_upload_history
 
         ctx['results'] = format_results(results)
+        ctx['celery_tasks'] = getattr(importer, 'celery_tasks', None)
 
         # ctx['upload_file_url'] = importer.get_api_upload_file_url()
         # ctx['process_file_url'] = importer.get_process_file_url(file_upload_history.id)
@@ -295,9 +263,6 @@ class ImporterInformationApiView(APIView):
 
         ctx = {}
 
-        form_class = importer.get_form()
-        formset_class = importer.get_formset_class()
-
         ctx['valid_extensions'] = kwargs.pop('valid_extensions', ['xls', 'xlsx'])
 
         # template_file = kwargs.get('template_file', importer.get_importer_link())
@@ -315,5 +280,7 @@ class ImporterInformationApiView(APIView):
         ctx['results_file_url'] = importer.get_api_results_file_url('__pk__')
         ctx['process_file_url'] = importer.get_api_process_file_url('__pk__')
         ctx['detail_file_url'] = importer.get_api_detail_file_url('__pk__')
+
+        ctx['celery_tasks'] = getattr(importer, 'celery_tasks', None)
 
         return Response(ctx)

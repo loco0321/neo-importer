@@ -66,6 +66,9 @@ class FileUploadHistory(models.Model):
 
     form_params = models.TextField(blank=True, null=True)
 
+    validate_end = models.NullBooleanField()
+    celery_tasks = models.CharField(max_length=250, null=True, blank=True)
+
     objects = FileUploadHistoryManager()
 
     sheet_importers = models.ManyToManyField('neo_importer.FileUploadHistory', null=True, blank=True, verbose_name=u('sheet importers'))
@@ -123,7 +126,8 @@ class FileUploadHistory(models.Model):
             data = zlib.compress(data, 9)
         return base64.b64encode(data)
 
-    def decode_data(self, data):
+    @classmethod
+    def decode_data(cls, data):
         import zlib, base64
         try:
             data = zlib.decompress(base64.b64decode(data)).decode('utf-8')

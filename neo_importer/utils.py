@@ -1,3 +1,4 @@
+import importlib
 import re
 
 import six
@@ -89,3 +90,19 @@ def get_cell_mapping(cell_mapping):
         else:
             raise ValueError('Cell "' + str(cell) + '" is no valid. The valid config are {"row":x, "col":y}, [x,y] and AB11')
     return new_cell_mapping
+
+
+def custom_import(import_path):
+    modules = [i.strip() for i in import_path.split('.')]
+    try:
+        return importlib.import_module(import_path)
+    except ModuleNotFoundError as e:
+        if len(modules) > 1:
+            path_body = '.'.join(modules[:-1])
+            module_body = importlib.import_module(path_body)
+            return getattr(module_body, modules[-1])
+        raise e
+
+
+def get_path_import_from_class(python_class):
+    return '{}.{}'.format(python_class.__module__, python_class.__name__)
