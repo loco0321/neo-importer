@@ -128,6 +128,8 @@ class FileUploadHistory(models.Model):
 
     @classmethod
     def decode_data(cls, data):
+        if not data:
+            return {}
         import zlib, base64
         try:
             data = zlib.decompress(base64.b64decode(data)).decode('utf-8')
