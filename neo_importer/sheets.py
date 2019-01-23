@@ -491,6 +491,7 @@ class ExcelGenerator(object):
     def __init__(self, date_format=DATE_FORMAT, datetime_format=DATETIME_FORMAT, encoding='utf-8'):
         self.date_format = date_format
         self.datetime_format = datetime_format
+        self.styles = {}
 
         if encoding:
             self._workbook = Workbook(encoding=encoding, style_compression=2)
@@ -512,22 +513,47 @@ class ExcelGenerator(object):
 
     def _write_cell(self, row_index, column_index, cell):
         value = cell.data
-        if isinstance(cell.style, str):
-            current_style = easyxf(cell.style)
-        elif isinstance(cell.style, ExcelCellStyle):
-            current_style = easyxf(cell.style.get_style_str())
-        else:
-            current_style = copy(cell.style)
-        if type(value) == datetime.date:
-            current_style.num_format_str = self.date_format
-        elif type(value) == datetime.datetime:
-            current_style.num_format_str = self.datetime_format
+        # if isinstance(cell.style, str):
+        #     current_style = easyxf(cell.style)
+        # elif isinstance(cell.style, ExcelCellStyle):
+        #     current_style = easyxf(cell.style.get_style_str())
+        # else:
+        #     current_style = copy(cell.style)
+        # if type(value) == datetime.date:
+        #     current_style.num_format_str = self.date_format
+        # elif type(value) == datetime.datetime:
+        #     current_style.num_format_str = self.datetime_format
+        current_style = self.get_style(cell)
         if cell.col_span == 1 and cell.row_span == 1:
             self._current_sheet.write(row_index, column_index, value, current_style)
         else:
             self._current_sheet.write_merge(row_index, row_index + cell.row_span - 1,
                                             column_index, column_index + cell.col_span - 1,
                                             value, current_style)
+
+    def get_style(self, cell):
+        value = cell.data
+        if isinstance(cell.style, str):
+            self.styles[cell.style] = self.styles.get(cell.styl) or easyxf(cell.style)
+            current_style = self.styles[cell.style]
+        elif isinstance(cell.style, ExcelCellStyle):
+            self.styles[cell.style.get_style_str()] = self.styles.get(cell.style.get_style_str()) or easyxf(cell.style.get_style_str())
+            current_style = self.styles[cell.style.get_style_str()]
+        else:
+            self.styles['default'] = self.styles.get('default') or copy(cell.style)
+            current_style = self.styles[cell.style]
+
+        if type(value) == datetime.date:
+            if not self.styles.get('date'):
+                self.styles['date'] = copy(current_style)
+                self.styles['date'].num_format_str = self.date_format
+            current_style = self.styles['date']
+        elif type(value) == datetime.datetime:
+            if not self.styles.get('datetime'):
+                self.styles['datetime'] = copy(current_style)
+                self.styles['datetime'].num_format_str = self.datetime_format
+            current_style = self.styles['datetime']
+        return current_style
 
     def generate(self, excel_data):
         "return a Workbook"
