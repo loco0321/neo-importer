@@ -27,6 +27,7 @@ def format_results(results):
                 'columns_mapping': result.columns_mapping,
                 'columns_to_group': result.columns_to_group,
                 'data': result.data,
+                'data_summary': get_data_summary(result.data),
                 'grouped_fields': result.grouped_fields,
                 'grouped_fields_labels': result.grouped_fields_labels,
                 'ignored_elements': result.ignored_elements,
@@ -38,12 +39,21 @@ def format_results(results):
         'columns_mapping': results.columns_mapping,
         'columns_to_group': results.columns_to_group,
         'data': results.data,
+        'data_summary': get_data_summary(results.data),
         'grouped_fields': results.grouped_fields,
         'grouped_fields_labels': results.grouped_fields_labels,
         'ignored_elements': results.ignored_elements,
         'single_elements': results.single_elements,
     }
     return results_format
+
+
+def get_data_summary(data):
+    data_summary = data.copy()
+    data_summary['errors'] = len(data.get('errors', []))
+    data_summary['infos'] = len(data.get('infos', []))
+    data_summary['warnings'] = len(data.get('warnings', []))
+    return data_summary
 
 
 def convert_letter_to_number(letter):

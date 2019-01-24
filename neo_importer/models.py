@@ -106,14 +106,7 @@ class FileUploadHistory(models.Model):
         super(FileUploadHistory, self).save()
 
     def decode_results(self):
-        import zlib, base64
-        try:
-            data = zlib.decompress(base64.b64decode(self.results))
-            data = json.loads(data)
-        except ValueError:
-            data = {}
-
-        return data
+        return self.decode_data(self.results)
 
     def encode_data(self, data):
         import zlib, base64

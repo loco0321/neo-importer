@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from neo_importer.exceptions import StopImporter
 from neo_importer.models import FileUploadHistory
+from neo_importer.utils import get_data_summary
 
 
 class NeoFileImporterSerializer(serializers.Serializer):
@@ -67,12 +68,19 @@ class NeoFileImporterSerializer(serializers.Serializer):
 
 class FileUploadHistorySerializer(serializers.ModelSerializer):
     params = serializers.SerializerMethodField()
+    data = serializers.SerializerMethodField()
 
     class Meta:
         model = FileUploadHistory
         fields = ('id', 'uploaded_file', 'state', 'original_filename', 'type',
                   'start_execution_timestamp', 'finish_execution_timestamp',
-                  'notification_sent', 'params', 'validate_end', 'celery_tasks')
+                  'notification_sent', 'params', 'validate_end', 'celery_tasks', 'data')
 
     def get_params(self, obj):
         return obj.get_form_params()
+
+    def get_data(self, obj):
+        data = obj.decode_results()
+        if isinstance(data, list):
+            return [get_data_summary(i) for i in data]
+        return get_data_summary(data)
