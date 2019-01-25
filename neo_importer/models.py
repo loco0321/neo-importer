@@ -79,6 +79,9 @@ class FileUploadHistory(models.Model):
     def __unicode__(self):
         return '[%s] %s' % (str(self.upload_timestamp), self.type)
 
+    def __str__(self):
+        return '[%s] %s' % (str(self.upload_timestamp), self.type)
+
     def duration(self):
         "Duration includes the time the task is waiting in celery to be processed."
         if not self.finish_execution_timestamp or not self.start_execution_timestamp:
@@ -106,7 +109,9 @@ class FileUploadHistory(models.Model):
         super(FileUploadHistory, self).save()
 
     def decode_results(self):
-        return self.decode_data(self.results)
+        if not self.sheet_importers.exists():
+            return self.decode_data(self.results)
+        return [self.decode_data(i.results) for i in self.sheet_importers.all()]
 
     def encode_data(self, data):
         import zlib, base64
