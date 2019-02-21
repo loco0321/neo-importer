@@ -280,7 +280,6 @@ class ImporterInformationApiView(APIView):
         ctx['results_file_url'] = importer.get_api_results_file_url('__pk__')
         ctx['process_file_url'] = importer.get_api_process_file_url('__pk__')
         ctx['detail_file_url'] = importer.get_api_detail_file_url('__pk__')
-
+        ctx['form_api'] = importer.get_form_api()
         ctx['celery_tasks'] = getattr(importer, 'celery_tasks', None)
-
         return Response(ctx)

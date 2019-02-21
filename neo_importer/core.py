@@ -24,6 +24,7 @@ from django.template.defaultfilters import slugify
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
+from django_remote_forms.forms import RemoteForm
 from xlrd import open_workbook
 
 from neo_importer.exceptions import ImporterError, InvalidLength, SkipRow, ImporterWarning, StopImporter, \
@@ -247,6 +248,10 @@ class NeoImporter(object):
         #     'cell': AB12,
         #     'required': False,
         # }
+
+    @classmethod
+    def get_form_api(cls):
+        return
 
     def get_data_specific_cells(self):
         return {field_name: cell.get('value') for field_name, cell in self.specific_cells_mapping.items()}
@@ -1345,7 +1350,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     #         self.save_process_importer(cleaned_data)
     #
     #     else:
-    #         super(GroupNeoImporterWithRevision, self).save(cleaned_data)
+    #         super(GroupNeoImporterWithRevielf.ion, self).save(cleaned_data)
 
     def save(self, cleaned_data):
         self.all_cleaned_data.append(cleaned_data)
@@ -1707,6 +1712,14 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     @classmethod
     def get_form(cls):
         return NeoFileImporterForm
+
+    @classmethod
+    def get_form_api(cls):
+        form_class = cls.get_form()
+        if form_class:
+            form = form_class()
+            remote_form = RemoteForm(form)
+            return remote_form.as_dict()
 
     @classmethod
     def get_serializer_class(cls):
