@@ -24,6 +24,7 @@ from django.template.defaultfilters import slugify
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
+from django_remote_forms.forms import RemoteForm
 from xlrd import open_workbook
 
 from neo_importer.exceptions import ImporterError, InvalidLength, SkipRow, ImporterWarning, StopImporter, \
@@ -34,19 +35,26 @@ from neo_importer.models import FileUploadHistory
 from neo_importer.readers import ExcelReaderAllAsString, ExcelReaderInMemoryAllAsString
 from neo_importer.serializers import NeoFileImporterSerializer
 from neo_importer.sheets import SheetData, ExcelData
-from neo_importer.utils import get_cell_mapping
+from neo_importer.utils import get_cell_mapping, get_path_import_from_class, custom_import
 from neo_importer.validators import RequiredValidator
 from neo_importer.views import UploadFileApiView, ImporterInformationApiView, DetailFileHistoryApiView, \
     ValidateFileHistoryApiView, ProcessFileHistoryApiView, ResultsFileHistoryApiView
 
 
 class NeoImporterReport(object):
-    def __init__(self):
+    def __init__(self, importer_class=None):
         self.amount_of_lines = 0
         self.errors = []
         self.infos = []
         self.warnings = []
         self.specific_cells = []
+        self.file_history = None
+        self.importer_class = importer_class
+
+    def save_result_line(self):
+        if self.file_history:
+            result = self.to_encoded_json()
+            FileUploadHistory.objects.filter(id=self.file_history.id).update(results=result)
 
     def line_read(self):
         self.amount_of_lines += 1
@@ -59,25 +67,36 @@ class NeoImporterReport(object):
 
     def add_warning(self, msg):
         self.warnings.append(self.format_msg(msg))
+        self.save_result_line()
 
     def add_info(self, msg):
         self.infos.append(self.format_msg(msg))
+        self.save_result_line()
 
     def add_cell(self, specific_cells):
         for key, data in specific_cells.items():
             data['field'] = key
             self.specific_cells.append(self.format_msg(data))
+        self.save_result_line()
 
     def add_error(self, msg):
         self.errors.append(self.format_msg(msg))
+        self.save_result_line()
 
     def to_encoded_json(self):
         import zlib, base64
-        j = json.dumps(self, default=lambda o: o.__dict__)
+        json_text = json.dumps({
+            'amount_of_lines': self.amount_of_lines,
+            'errors': self.errors,
+            'infos': self.infos,
+            'warnings': self.warnings,
+            'specific_cells': self.specific_cells,
+            'importer_class': get_path_import_from_class(self.importer_class)
+        })
         try:
-            return base64.b64encode(zlib.compress(bytearray(j, encoding='UTF-8'), 9)).decode('utf-8')
+            return base64.b64encode(zlib.compress(bytearray(json_text, encoding='UTF-8'), 9)).decode('utf-8')
         except:
-            return base64.b64encode(zlib.compress(j,9)).decode('utf-8')
+            return base64.b64encode(zlib.compress(json_text, 9)).decode('utf-8')
 
     def create_excel_report(self, fileuploadhistory, importer):
         from xlutils.copy import copy
@@ -202,6 +221,7 @@ class NeoImporter(object):
 
     # False to avoid validating columns on non specified importers
     specific_cells_mapping = {}
+    celery_tasks = None
 
     def __init__(self, reader, first_valid_line=0, auto_assign_columns=False, column_quantity=0, validate_column_names=False, **kwargs):
         self.validate_column_names = validate_column_names
@@ -210,7 +230,7 @@ class NeoImporter(object):
         self.auto_assign_columns = auto_assign_columns
         self.valid_parameters = [] # used to validate columns if auto_assign_columns is True
         self.valid_row_lengths = None
-        self.report = NeoImporterReport()
+        self.report = NeoImporterReport(importer_class=self.__class__)
         self.columns = {}
         self.validators = {}
         self.user = kwargs.get('user', None)
@@ -228,6 +248,10 @@ class NeoImporter(object):
         #     'cell': AB12,
         #     'required': False,
         # }
+
+    @classmethod
+    def get_form_api(cls):
+        return
 
     def get_data_specific_cells(self):
         return {field_name: cell.get('value') for field_name, cell in self.specific_cells_mapping.items()}
@@ -512,9 +536,27 @@ class NeoImporter(object):
         "Hook to custom tasks after save the historic: FileUploadHistory model."
         pass
 
+    def execute_importer(self, file_upload_history, extra_user_params={}, formset_params=None):
+        file_upload_history.validate_end = False
+        file_upload_history.celery_tasks = getattr(self, 'celery_tasks', None)
+        file_upload_history.save()
+        if getattr(self, 'celery_tasks', None):
+            self.execute_task(file_upload_history, extra_user_params=extra_user_params, formset_params=formset_params)
+            return self.celery_tasks
+        self.execute(file_upload_history, extra_user_params=extra_user_params, formset_params=formset_params)
+
+    def execute_task(self, file_upload_history, extra_user_params={}, formset_params=None):
+        importer_class_path = get_path_import_from_class(self.__class__)
+        execute_importer_tasks = custom_import(self.celery_tasks)
+        execute_importer_tasks.delay(importer_class_path, file_upload_history.user.id, file_upload_history.id,
+                                     extra_user_params, process=getattr(self, 'process_importer', False),
+                                     formset_cleaned_data=formset_params)
+
     #@transaction.commit_manually
-    def execute(self, file_upload_history, extra_user_params={}):
+    def execute(self, file_upload_history, extra_user_params={}, formset_params=None):
         """ This is the entry method for DataImporter class to import a file. """
+        if getattr(self, 'parent', None) and getattr(self.parent, 'celery_tasks', None):
+            self.report.file_history = file_upload_history
         if file_upload_history.is_processed():
             raise FileAlreadyProcessed('This file has already been executed.')
         file_upload_history.state = FileUploadHistory.PROCESSING
@@ -531,6 +573,7 @@ class NeoImporter(object):
         try:
             data_source = file_upload_history.uploaded_file.path
             self.execute_internal(data_source)
+            file_upload_history.validate_end = True
             self.save_historic(file_upload_history, self.report)
             self.post_save_historic(file_upload_history)
         except ImporterError as e:
@@ -538,6 +581,7 @@ class NeoImporter(object):
             file_upload_history.results = e.detailed_user_message()
             file_upload_history.state = FileUploadHistory.FAILED
             file_upload_history.finish_execution_timestamp = datetime.now()
+            file_upload_history.validate_end = True
             file_upload_history.save(force_update=True)
             transaction.commit()
             self.report.add_error(e.detailed_user_message() + repr(traceback.format_exc()))
@@ -808,6 +852,7 @@ def neo_data_importer_view_decorator(view, cacheable=False):
         if not user.has_perms(importer.get_permissions()):
             return HttpResponseForbidden()
 
+        kwargs['celery_tasks'] = getattr(importer_class, 'celery_tasks', None)
         kwargs['importer'] = importer
     #     if not self.has_permission(request):
     #         return self.login(request)
@@ -848,10 +893,9 @@ def neo_data_importer_api_view_decorator(view, cacheable=False):
         user = request.user
         importer_class = kwargs.pop('importer_class')
         importer = importer_class(user=user, process_importer=kwargs.pop('process', False))
-
         kwargs['importer'] = importer
-    #     if not self.has_permission(request):
-    #         return self.login(request)
+        if getattr(importer_class, 'celery_tasks', None):
+            kwargs['celery_task'] = True
         return view(request, *args, **kwargs)
     if not cacheable:
         inner = never_cache(inner)
@@ -1159,6 +1203,8 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     def execute(self, file_upload_history, extra_user_params={}, formset_params=None):
         self.file_upload_history = file_upload_history
         self.formset_params = formset_params
+        if getattr(self, 'parent', None) and getattr(self.parent, 'celery_tasks', None):
+            self.report.file_history = file_upload_history
         super(GroupNeoImporterWithRevision, self).execute(file_upload_history, extra_user_params)
 
     def save_historic(self, file_upload_history, report):
@@ -1304,7 +1350,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     #         self.save_process_importer(cleaned_data)
     #
     #     else:
-    #         super(GroupNeoImporterWithRevision, self).save(cleaned_data)
+    #         super(GroupNeoImporterWithRevielf.ion, self).save(cleaned_data)
 
     def save(self, cleaned_data):
         self.all_cleaned_data.append(cleaned_data)
@@ -1319,13 +1365,16 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         }
         self.report.add_info(raw_data)
 
-    def get_results_template(self):
+    @classmethod
+    def get_results_template(cls):
         return 'data_importer/neo_file_importer_show_results.html'
 
-    def get_form_template(self):
+    @classmethod
+    def get_form_template(cls):
         return 'data_importer/neo_file_importer_with_revision.html'
 
-    def get_show_validations_template(self):
+    @classmethod
+    def get_show_validations_template(cls):
         return 'data_importer/neo_file_importer_show_validations.html'
 
     # @classmethod
@@ -1447,15 +1496,6 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
                 cls.get_kwargs_results(),
                 name='%s_api_results_file' % cls.get_url_name()
             ),
-            # url(r'^(.+)/history/$',
-            #     wrap(self.history_view),
-            #     name='%s_%s_history' % info),
-            # url(r'^(.+)/delete/$',
-            #     wrap(self.delete_view),
-            #     name='%s_%s_delete' % info),
-            # url(r'^(.+)/$',
-            #     wrap(self.change_view),
-            #     name='%s_%s_change' % info),
         )
         return urlpatterns
 
@@ -1470,7 +1510,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
 
         if request.method == 'POST':
             form_class = importer.get_form()
-            formset_class = importer.get_formset_class()
+            formset_class = importer.get_formset_class() if kwargs.get('importer') else None
 
             valid_extensions = kwargs.pop('valid_extensions', ['xls', 'xlsx'])
 
@@ -1484,7 +1524,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
                 formset.is_valid()
                 formset_cleaned_data = formset.cleaned_data
 
-            importer.execute(
+            importer.execute_importer(
                 file_upload_history,
                 extra_user_params=form.cleaned_data,
                 formset_params=formset_cleaned_data
@@ -1510,7 +1550,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         importer.file_upload_history = file_upload_history
         kwargs['results'] = results
         kwargs['file_upload_history'] = file_upload_history
-        kwargs['entity_name'] = importer.entity_name
+        kwargs['entity_name'] = importer.entity_name if kwargs.get('importer') else importer.get_importer_type()
         kwargs['importer_title'] = importer.get_importer_title()
         kwargs['importer_type'] = importer.get_importer_type()
         kwargs['upload_file_url'] = importer.get_upload_file_url()
@@ -1544,11 +1584,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
             formset.is_valid()
             formset_cleaned_data = formset.cleaned_data
 
-        importer.execute(
-            file_upload_history,
-            extra_user_params=form.cleaned_data,
-            formset_params=formset_cleaned_data
-        )
+        importer.execute_importer(file_upload_history, extra_user_params=form.cleaned_data, formset_params=formset_cleaned_data)
 
         results = importer.get_results(file_upload_history)
         template = importer.get_show_validations_template()
@@ -1556,7 +1592,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         kwargs['file_upload_history'] = file_upload_history
         kwargs['form'] = form
         kwargs['formset'] = formset
-        kwargs['entity_name'] = importer.entity_name
+        kwargs['entity_name'] = importer.entity_name if kwargs.get('importer') else importer.get_importer_type()
         kwargs['importer_title'] = importer.get_importer_title()
         kwargs['importer_type'] = importer.get_importer_type()
         kwargs['upload_file_url'] = importer.get_upload_file_url()
@@ -1593,7 +1629,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
         # template_file = kwargs.get('template_file', importer.get_importer_link())
         # kwargs['template_file'] = template_file
         kwargs['importer_type'] = importer.get_importer_type()
-        kwargs['entity_name'] = importer.entity_name
+        kwargs['entity_name'] = importer.entity_name if kwargs.get('importer') else importer.get_importer_type()
         kwargs['importer_title'] = importer.get_importer_title()
         kwargs['title'] = importer.get_importer_title()
         if importer.get_html_helper_messages():
@@ -1676,6 +1712,14 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
     @classmethod
     def get_form(cls):
         return NeoFileImporterForm
+
+    @classmethod
+    def get_form_api(cls):
+        form_class = cls.get_form()
+        if form_class:
+            form = form_class()
+            remote_form = RemoteForm(form)
+            return remote_form.as_dict()
 
     @classmethod
     def get_serializer_class(cls):
@@ -1832,6 +1876,7 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
                     extra_user_params=extra_user_params,
                     formset_params=formset_params
                 )
+            file_upload_history.validate_end = True
             self.save_historic(file_upload_history, self.report)
             self.post_save_historic(file_upload_history)
         except ImporterError as e:
@@ -1839,6 +1884,7 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
             file_upload_history.results = e.detailed_user_message()
             file_upload_history.state = FileUploadHistory.FAILED
             file_upload_history.finish_execution_timestamp = datetime.now()
+            file_upload_history.validate_end = True
             file_upload_history.save(force_update=True)
             transaction.commit()
             self.report.add_error(e.detailed_user_message() + repr(traceback.format_exc()))
@@ -1860,8 +1906,10 @@ class GroupNeoImporterWithRevisionMultiSheets(GroupNeoImporterWithRevision):
             if sheet_importer_object.get_importer_type() == importer_type:
                 return sheet_importer_object
 
-    def get_show_validations_template(self):
+    @classmethod
+    def get_show_validations_template(cls):
         return 'data_importer/neo_file_importer_sheets_show_validations.html'
 
-    def get_results_template(self):
+    @classmethod
+    def get_results_template(cls):
         return 'data_importer/neo_file_importer_sheets_show_results.html'

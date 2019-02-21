@@ -66,6 +66,9 @@ class FileUploadHistory(models.Model):
 
     form_params = models.TextField(blank=True, null=True)
 
+    validate_end = models.NullBooleanField()
+    celery_tasks = models.CharField(max_length=250, null=True, blank=True)
+
     objects = FileUploadHistoryManager()
 
     sheet_importers = models.ManyToManyField('neo_importer.FileUploadHistory', null=True, blank=True, verbose_name=u('sheet importers'))
@@ -74,6 +77,9 @@ class FileUploadHistory(models.Model):
     #     db_table = 'data_importer_fileuploadhistory'
 
     def __unicode__(self):
+        return '[%s] %s' % (str(self.upload_timestamp), self.type)
+
+    def __str__(self):
         return '[%s] %s' % (str(self.upload_timestamp), self.type)
 
     def duration(self):
@@ -103,14 +109,9 @@ class FileUploadHistory(models.Model):
         super(FileUploadHistory, self).save()
 
     def decode_results(self):
-        import zlib, base64
-        try:
-            data = zlib.decompress(base64.b64decode(self.results))
-            data = json.loads(data)
-        except ValueError:
-            data = {}
-
-        return data
+        if not self.sheet_importers.exists():
+            return self.decode_data(self.results)
+        return [self.decode_data(i.results) for i in self.sheet_importers.all()]
 
     def encode_data(self, data):
         import zlib, base64
@@ -123,7 +124,10 @@ class FileUploadHistory(models.Model):
             data = zlib.compress(data, 9)
         return base64.b64encode(data)
 
-    def decode_data(self, data):
+    @classmethod
+    def decode_data(cls, data):
+        if not data:
+            return {}
         import zlib, base64
         try:
             data = zlib.decompress(base64.b64decode(data)).decode('utf-8')
