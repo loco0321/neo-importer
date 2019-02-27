@@ -510,7 +510,7 @@ class NeoImporter(object):
                     self.validate_column_quantity(row)
                     if self.validate_column_names:
                         self.validate_with_template(row)
-                if line_number < self.first_valid_line:
+                if not self.is_valid_row(line_number, row):
                     continue
                 self.process_row(row)
             except ImporterError as e:
@@ -522,6 +522,9 @@ class NeoImporter(object):
             self.report.line_read()
 
         self.post_execute(data_source)
+
+    def is_valid_row(self, line_number, row):
+        return line_number >= self.first_valid_line
 
     def save_historic(self, file_upload_history, report):
         # if the string is too long we will get the error:
@@ -644,7 +647,7 @@ class GroupNeoImporter(NeoImporter):
             if line_number == 0 and self.validate_column_names:
                 self.validate_with_template(row)
 
-            if line_number < self.first_valid_line:
+            if not self.is_valid_row(line_number, row):
                 continue
 
             self.rows.append(row)
@@ -965,7 +968,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
                 self.validate_with_template(row)
                 break
 
-            if line_number < self.first_valid_line:
+            if not self.is_valid_row(line_number, row):
                 continue
 
     def execute_internal(self, data_source):
@@ -982,7 +985,7 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
                 self.validate_column_quantity(row)
                 self.validate_with_template(row)
 
-            if line_number < self.first_valid_line:
+            if not self.is_valid_row(line_number, row):
                 continue
 
             self.rows.append(row)

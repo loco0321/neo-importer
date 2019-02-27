@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 import traceback
 
-class DataImporterError(Exception):
+from django.core.exceptions import ValidationError
+
+
+class DataImporterError(ValidationError):
     """
     Base class for all data importer exceptions."
     Attention: Use unicode messages instead of strings: u'...' instead of '...' to avoid UnicodeDecodeErrors
