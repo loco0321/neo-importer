@@ -1048,13 +1048,13 @@ class GroupNeoImporterWithRevision(GroupNeoImporter):
             else:
                 errors.append(column)
 
-        if errors:
-            raise StopImporter(
-                u"You have uploaded a wrong or outdated template. Missing columns: {0}. Please, follow <a class='' href='{1}'>this template file</a> to avoid validation errors.".format(
-                    u', '.join(errors),
-                    self.get_importer_link()
-                )
-            )
+        # if errors:
+        #     raise StopImporter(
+        #         u"You have uploaded a wrong or outdated template. Missing columns: {0}. Please, follow <a class='' href='{1}'>this template file</a> to avoid validation errors.".format(
+        #             u', '.join(errors),
+        #             self.get_importer_link()
+        #         )
+        #     )
 
     def get_date(self, value):
         for d_format in self.date_formats:
